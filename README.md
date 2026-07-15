@@ -37,8 +37,8 @@ python -m pip install -e ".[dev]"
 
 ## Launch the demo
 
-Windows, macOS, GNOME-family desktops, and KDE Plasma can discover supported
-static-image wallpapers:
+Windows, macOS, GNOME-family desktops, KDE Plasma, MATE, XFCE, and LXQt can
+discover supported static-image wallpapers:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\run_demo.ps1
@@ -55,6 +55,11 @@ Use the theme selector to follow the system or force light or dark mode. Moving
 the window only selects and paints a desktop-registered crop from the cached
 material. Regeneration occurs when the wallpaper, theme, display topology, or
 recipe changes.
+
+System theme following uses the native Qt signal on Windows and macOS. Linux
+reads the active desktop setting for GNOME, Cinnamon, MATE, XFCE, KDE Plasma,
+and LXQt, then monitors it asynchronously. Settings queries never run during
+painting or window movement.
 
 Wallpaper metadata is polled at low frequency outside movement and paint paths.
 GNOME selects its light- or dark-specific URI, KDE Plasma publishes one source
@@ -145,10 +150,11 @@ automated verification never opens or moves a desktop window.
 
 GitHub Actions repeats the deterministic renderer and Qt tests on Windows,
 Ubuntu, Apple Silicon macOS, and Intel macOS. Separate jobs exercise X11 under
-Xvfb and the native Cocoa Qt backend, build and install distribution artifacts,
-and run a relaxed hosted-runner performance sentinel. The 1.5 ms performance
-gate remains tied to the reference workstation because shared CI timing is
-inherently noisy.
+Xvfb, real GNOME/Cinnamon/MATE/XFCE/LXQt settings implementations, and the
+native Cocoa Qt backend. CI also builds and installs distribution artifacts and
+runs a relaxed hosted-runner performance sentinel. The 1.5 ms performance gate
+remains tied to the reference workstation because shared CI timing is inherently
+noisy.
 
 ## Code layout
 

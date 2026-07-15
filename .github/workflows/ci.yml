@@ -84,6 +84,30 @@ jobs:
           --wallpaper tests/assets/ci-wallpaper.ppm
           --smoke-test
 
+  linux-desktop-contracts:
+    name: Linux desktop provider contracts
+    runs-on: ubuntu-24.04
+    env:
+      CUTEMICA_LINUX_CONTRACTS: "1"
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install desktop settings implementations
+        run: >-
+          sudo apt-get update && sudo apt-get install -y
+          cinnamon-desktop-data dbus-x11 gsettings-desktop-schemas libegl1
+          mate-desktop-common xfconf
+      - run: python -m pip install -e ".[dev]"
+      - name: Exercise real desktop settings contracts
+        run: >-
+          dbus-run-session --
+          python -m pytest -q tests/integration/test_linux_desktop_contracts.py
+
   macos-cocoa:
     name: Native macOS Cocoa
     runs-on: macos-15

@@ -71,7 +71,8 @@ src/cutemica/
   geometry.py              explicit coordinate models
   recipe.py                versioned material constants
   scheduler.py             worker-thread requests
-  theme.py                 Qt theme observation
+  theme.py                 resolved theme policy and publication
+  theme_monitor.py         asynchronous desktop-theme polling
   wallpaper.py             normalized wallpaper input
   core/
     blur_plan.py           blur backend and finite support
@@ -87,19 +88,28 @@ src/cutemica/
     capabilities.py        explicit provider capability model
     explicit_wallpaper.py  application-supplied wallpaper provider
     gnome_wallpaper.py     GNOME-family wallpaper metadata
+    gsettings_theme.py     GNOME, Cinnamon, and MATE theme settings
+    kde_theme.py           Plasma color configuration
     linux_session.py       X11 and Wayland registration capability
     macos_appkit.py        narrow native Cocoa boundary
     macos_wallpaper.py     AppKit per-display wallpaper normalization
+    mate_wallpaper.py      MATE wallpaper metadata
+    lxqt_theme.py          LXQt appearance configuration
+    lxqt_wallpaper.py      LXQt desktop profile metadata
     plasma_wallpaper.py    KDE Plasma per-screen wallpaper metadata
     qt_screens.py          Qt display normalization
     qt_window_geometry.py  portable window geometry fallback
     system_wallpaper.py    provider selection
+    system_theme.py        platform theme-provider selection
+    theme_provider.py      typed system-theme contract
     wallpaper_monitor.py   low-frequency change publication
     wallpaper_provider.py  typed provider contract
     wayland_window_geometry.py  screen-local Wayland fallback
     window_geometry.py     window geometry adapter selection
     windows_wallpaper.py   Windows wallpaper discovery
     windows_window_geometry.py  stable Win32 client geometry
+    xfce_theme.py          XFCE XSettings theme metadata
+    xfce_wallpaper.py      XFCE per-monitor wallpaper metadata
   widgets/
     backdrop.py            cached Qt painting
     material_painter.py    planned-slice rasterization
@@ -198,10 +208,14 @@ movement or resize presentation and remains outside the paint handler.
 
 ## Theme behavior
 
-`ThemeMode.AUTO` follows `QStyleHints.colorSchemeChanged`. Explicit light and
-dark modes override the system scheme. A resolved-theme change invalidates the
-material cache and schedules one new material set. Inactive windows use the
-recipe's opaque fallback without regenerating wallpaper material.
+`ThemeMode.AUTO` follows `QStyleHints.colorSchemeChanged` on Windows and macOS.
+Linux uses the active desktop's native setting because Qt platform hints are not
+consistent across PySide wheel and desktop combinations. One initial settings
+read resolves startup state; non-overlapping worker jobs monitor later changes.
+Explicit light and dark modes override the system scheme. A resolved-theme
+change invalidates the material cache and schedules one new material set.
+Inactive windows use the recipe's opaque fallback without regenerating
+wallpaper material.
 
 ## Platform providers
 
@@ -213,14 +227,16 @@ macOS reads each `NSScreen` desktop URL and its scaling, clipping, and fill-colo
 options through AppKit, then associates Cocoa coordinates with Qt screen
 bindings. GNOME-family desktops read the active light or dark wallpaper URI,
 placement, and background color through GSettings. KDE Plasma reads static
-image containment state per screen through its read-only scripting API. The
-explicit provider supplies one validated source on every host. A low-frequency
-monitor publishes changed immutable snapshots; decoding and material generation
-remain asynchronous.
+image containment state per screen through its read-only scripting API. MATE
+uses its background schema, XFCE reads per-monitor Xfconf values, and LXQt reads
+the active pcmanfm-qt profile. The explicit provider supplies one validated
+source on every host. A low-frequency monitor publishes changed immutable
+snapshots; decoding and material generation remain asynchronous.
 
-Linux theme observation uses Qt's platform color-scheme integration, which
-consumes the standardized XDG appearance setting when the desktop portal
-provides it. X11 uses Qt global geometry.
+Linux theme observation reads GNOME's explicit color scheme, Cinnamon and
+MATE's selected themes, XFCE XSettings, Plasma window colors, or LXQt appearance
+configuration. Settings monitoring runs outside the GUI thread. X11 uses Qt
+global geometry.
 
 Wayland compositors that do not expose a global top-level position cannot offer
 exact desktop registration without a compositor-specific integration; the
@@ -278,13 +294,13 @@ GUI sequence that generates a material, changes the theme, regenerates, and
 exits successfully. All automated Qt work uses the offscreen platform and never
 opens or moves a real desktop window.
 
-## Delivery sequence
+## Platform validation sequence
 
 1. Maintain the Windows provider and shared reference renderer.
-2. Add macOS wallpaper discovery and change notifications behind normalized
-   provider interfaces.
-3. Add Linux desktop providers, beginning with environments that expose stable
-   wallpaper and global-window geometry.
+2. Validate macOS wallpaper discovery and change notifications through the
+   normalized provider interfaces and native Cocoa CI smoke path.
+3. Validate GNOME, Cinnamon, Plasma, MATE, XFCE, and LXQt providers in isolated
+   desktop sessions and real settings implementations.
 4. Run the same deterministic material and geometry fixtures on each platform.
 5. Publish platform capability limits and performance measurements without
    changing the shared recipe.

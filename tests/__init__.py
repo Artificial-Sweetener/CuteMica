@@ -1,0 +1,1 @@
+"""CuteMica test package."""

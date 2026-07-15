@@ -29,9 +29,22 @@ def create_system_wallpaper_provider() -> WallpaperProvider:
             from cutemica.providers.plasma_wallpaper import PlasmaWallpaperProvider
 
             return PlasmaWallpaperProvider()
+        if "mate" in desktop:
+            from cutemica.providers.mate_wallpaper import MateWallpaperProvider
+
+            return MateWallpaperProvider()
+        if "xfce" in desktop:
+            from cutemica.providers.xfce_wallpaper import XfceWallpaperProvider
+
+            return XfceWallpaperProvider()
+        if "lxqt" in desktop:
+            from cutemica.providers.lxqt_wallpaper import LxqtWallpaperProvider
+
+            return LxqtWallpaperProvider()
         raise RuntimeError(
-            "Automatic wallpaper discovery supports GNOME-family and KDE Plasma "
-            "desktops; launch with --wallpaper on this Linux desktop"
+            "Automatic wallpaper discovery supports GNOME-family, KDE Plasma, "
+            "MATE, XFCE, and LXQt desktops; launch with --wallpaper on this Linux "
+            "desktop"
         )
     raise RuntimeError(
         "Automatic wallpaper discovery is not available on this platform; "
