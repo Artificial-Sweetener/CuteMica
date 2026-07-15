@@ -100,8 +100,8 @@ jobs:
       - name: Install desktop settings implementations
         run: >-
           sudo apt-get update && sudo apt-get install -y
-          cinnamon-desktop-data dbus-x11 gsettings-desktop-schemas libegl1
-          mate-desktop-common xfconf
+          cinnamon-common cinnamon-desktop-data dbus-x11
+          gsettings-desktop-schemas libegl1 mate-desktop-common xfconf
       - run: python -m pip install -e ".[dev]"
       - name: Exercise real desktop settings contracts
         run: >-
