@@ -1,0 +1,295 @@
+# CuteMica cross-platform specification
+
+Current as of 14 July 2026.
+
+## Purpose
+
+CuteMica is a reusable PySide6 library that produces the same fast, opaque,
+wallpaper-derived Mica Alt material on Windows, Linux, and macOS. The shared
+CuteMica renderer and versioned recipe define the reference appearance. Platform
+code supplies wallpaper state, display geometry, theme signals, and change
+notifications without replacing the renderer.
+
+## Product contract
+
+CuteMica must:
+
+- Paint a fully opaque wallpaper-derived material through Qt.
+- Preserve desktop registration while a window moves.
+- Follow explicit light and dark modes and the system theme signal when present.
+- Support multiple displays, negative origins, mixed scale factors, and all
+  documented wallpaper placement modes.
+- Regenerate asynchronously when source state changes.
+- Keep image decoding, composition, blur, tinting, and allocation outside paint
+  and movement events.
+- Use the same recipe and rendering stages on every supported platform.
+- Provide deterministic fixtures that platform ports can compare against.
+
+CuteMica does not capture the desktop or other windows. It does not request a
+system backdrop or depend on a window-decoration or widget-theme framework.
+
+## Runtime dependencies
+
+The normal installation contains only:
+
+- PySide6 Essentials for Qt application, display, image, signal, and widget integration.
+- Pillow for wallpaper decoding, placement composition, and resampling.
+- NumPy for vectorized blur and material blending.
+- PyObjC Cocoa bindings on macOS for typed access to AppKit desktop metadata.
+
+Platform providers use Python standard-library interfaces where available.
+The macOS dependency is selected only on Darwin and is isolated behind one
+native adapter.
+Optional development dependencies provide formatting, linting, typing, and
+tests; they are not runtime requirements.
+
+## Architecture
+
+Dependency direction is one way:
+
+```text
+application
+  -> CuteMica controller and widget
+    -> scheduler, cache, recipe, geometry
+      -> portable compositor and processor
+
+platform provider
+  -> normalized wallpaper, screen, and theme state
+```
+
+The portable core never imports a platform provider. Providers translate host
+state into immutable `WallpaperSnapshot`, `WallpaperSource`, `ScreenBinding`,
+placement, background-color, and capability values.
+
+Source ownership:
+
+```text
+src/cutemica/
+  cache.py                 material cache
+  controller.py            generation lifecycle
+  enums.py                 stable public states
+  geometry.py              explicit coordinate models
+  recipe.py                versioned material constants
+  scheduler.py             worker-thread requests
+  theme.py                 Qt theme observation
+  wallpaper.py             normalized wallpaper input
+  core/
+    blur_plan.py           blur backend and finite support
+    center_linear.py       reduced-source sampling
+    compositor.py          wallpaper placement
+    float_blur.py          scaled-display blur
+    material_field.py      bounded adjacent-monitor blur halo
+    mica_blend.py          luminosity and color graph
+    processor.py           material pipeline
+    qt_image.py            Pillow-to-QImage boundary
+    speed_blur.py          1× speed kernel
+  providers/
+    capabilities.py        explicit provider capability model
+    explicit_wallpaper.py  application-supplied wallpaper provider
+    gnome_wallpaper.py     GNOME-family wallpaper metadata
+    linux_session.py       X11 and Wayland registration capability
+    macos_appkit.py        narrow native Cocoa boundary
+    macos_wallpaper.py     AppKit per-display wallpaper normalization
+    plasma_wallpaper.py    KDE Plasma per-screen wallpaper metadata
+    qt_screens.py          Qt display normalization
+    qt_window_geometry.py  portable window geometry fallback
+    system_wallpaper.py    provider selection
+    wallpaper_monitor.py   low-frequency change publication
+    wallpaper_provider.py  typed provider contract
+    wayland_window_geometry.py  screen-local Wayland fallback
+    window_geometry.py     window geometry adapter selection
+    windows_wallpaper.py   Windows wallpaper discovery
+    windows_window_geometry.py  stable Win32 client geometry
+  widgets/
+    backdrop.py            cached Qt painting
+    material_painter.py    planned-slice rasterization
+  performance/
+    fixture.py             deterministic motion input
+    motion.py              renderer hot-path measurement
+    result.py              timing result model
+    widget_motion.py       real offscreen widget measurement
+  viewport.py              pure multi-display slice planning
+  demo/
+    main.py                portable launch path
+    window.py              standard Qt demo window
+    control_panel.py       theme and refresh controls
+    smoke.py               automated portable smoke lifecycle
+```
+
+Hand-written modules target at most 250 non-blank lines and own one coherent
+concern. Platform-specific discovery remains isolated under `providers`.
+
+## Coordinate model
+
+`ScreenBinding` records both native physical-pixel geometry and Qt
+device-independent geometry. Names must preserve which coordinate space a value
+belongs to. Conversion happens only at explicit screen-binding boundaries.
+
+The host geometry adapter publishes one snapshot containing the native physical
+client rectangle and the widget's current local DIP dimensions. The slice
+planner intersects native monitor rectangles and maps each result into that
+snapshot's local paint space. Paint never reconstructs or filters wallpaper
+pixels.
+
+This snapshot is required for mixed-DPI Qt layouts. Qt can publish a new anchor
+screen and DPR before remapping the window's logical position and dimensions;
+deriving native coordinates from that transitional state shifts the entire
+material. Windows therefore reads the physical client rectangle through
+`GetClientRect` and `ClientToScreen`. Other hosts use the isolated Qt adapter
+until they require a platform-specific geometry source.
+
+Each move event publishes the new client origin once and synchronously presents
+the cached frame. The widget paint handler does not query its position. Smooth
+subpixel sampling represents every motion phase of reduced material textures.
+A pure slice planner intersects the window with every display and maps each
+intersection to the corresponding cached material, avoiding a whole-window
+texture switch at display boundaries.
+
+## Wallpaper composition
+
+The compositor supports fill, fit, stretch, center, tile, and span placement.
+Span placement constructs one virtual native-pixel field and crops each display
+from that field. Material generation pads only the sides and corners within one
+finite blur support of another physical display. Occupied halo regions use that
+neighbor's wallpaper field; true desktop voids retain the recipe's reflected
+boundary. The processed halo is cropped before cache publication.
+
+An explicitly supplied wallpaper works on every platform. Automatic wallpaper
+discovery is a provider capability. A platform without a provider requires the
+host application or demo `--wallpaper` argument to supply the image.
+
+## Material recipe
+
+`mica-alt-v7-neighbor-halo` is the current CuteMica reference recipe.
+
+| Theme | Material | Luminosity | Color opacity | 1× blur | Scaled blur |
+|---|---:|---:|---:|---:|---:|
+| Light | `#DADADA` | `1.0` | `0.5` | `120 DIP` | `116 DIP` |
+| Dark | `#0A0A0A` | `1.0` | `0.0` | `120 DIP` | `115 DIP` |
+
+The physical material scale is `0.25` on 1× displays and `0.5` on scaled
+displays. The 1× path uses center-linear reduction and the phase-aware sigma-30
+speed kernel. The scaled path uses the float32 box-Gaussian implementation.
+Both paths reflect at per-monitor boundaries and retain float values until one
+final round-to-nearest conversion to RGB.
+
+Recipe changes require a new version string, deterministic fixture updates, and
+performance measurements. Platform ports reproduce the recipe; they do not tune
+platform-specific material colors or replace stages with host effects.
+
+## Cache and scheduling
+
+The cache identity includes wallpaper revision, placement, screen identity,
+native geometry, Qt geometry, display scale, resolved theme, and recipe version.
+
+Generation runs in the global Qt thread pool. Every refresh receives a
+monotonically increasing generation number. Stale results are discarded. A
+completed worker `QImage` becomes a `QPixmap` and is published atomically on the
+GUI thread while the previous valid material remains visible. The cache and
+presenter retain implicitly shared `QPixmap` handles to one pixel buffer.
+The LRU cache capacity equals the display count, bounding steady-state cache
+storage to one current material per display. The presenter may retain the prior
+generation during an asynchronous replacement.
+
+Movement and paint must not perform file I/O, wallpaper/display provider
+queries, image decoding, wallpaper composition, blur, tinting, or full-screen
+allocation. A host-native client-rectangle snapshot is permitted once per
+movement or resize presentation and remains outside the paint handler.
+
+## Theme behavior
+
+`ThemeMode.AUTO` follows `QStyleHints.colorSchemeChanged`. Explicit light and
+dark modes override the system scheme. A resolved-theme change invalidates the
+material cache and schedules one new material set. Inactive windows use the
+recipe's opaque fallback without regenerating wallpaper material.
+
+## Platform providers
+
+Windows wallpaper discovery reads the current desktop configuration and maps
+Windows placement values into the normalized placement enum. Qt supplies screen
+geometry, display scale, system color-scheme signals, and the paint surface.
+
+macOS reads each `NSScreen` desktop URL and its scaling, clipping, and fill-color
+options through AppKit, then associates Cocoa coordinates with Qt screen
+bindings. GNOME-family desktops read the active light or dark wallpaper URI,
+placement, and background color through GSettings. KDE Plasma reads static
+image containment state per screen through its read-only scripting API. The
+explicit provider supplies one validated source on every host. A low-frequency
+monitor publishes changed immutable snapshots; decoding and material generation
+remain asynchronous.
+
+Linux theme observation uses Qt's platform color-scheme integration, which
+consumes the standardized XDG appearance setting when the desktop portal
+provides it. X11 uses Qt global geometry.
+
+Wayland compositors that do not expose a global top-level position cannot offer
+exact desktop registration without a compositor-specific integration; the
+provider reports screen-local registration and anchors a stable local material
+rather than fabricating coordinates.
+
+## Performance targets
+
+- No regeneration during ordinary movement.
+- p95 backdrop paint contribution at or below 1.5 ms on the reference machine.
+- No material-caused frame above the 6.94 ms budget during a 144 Hz move trace.
+- UI-thread scheduling and result publication at or below 2 ms.
+- Idle CPU effectively zero outside explicit provider polling.
+- Material cache storage at or below 8 MiB per 4K screen where the selected
+  texture scale permits it.
+
+The renderer benchmark paints 2,000 registered frames into a reusable offscreen
+`QImage`. The widget benchmark drives the real `PortableMicaBackdrop` on Qt's
+offscreen platform and rejects desktop platform plugins. Five reference runs
+after mixed-DPI intersection handling measured 0.188–0.193 ms median,
+0.226–0.455 ms p95, and a 2.644 ms worst frame for the renderer. The widget
+path measured 0.199–0.219 ms median, 0.243–0.484 ms p95, and a 2.113 ms worst
+frame. Automated verification enforces the 1.5 ms p95 and 6.94 ms
+maximum-frame budgets on both paths.
+
+A half-resolution 4K material contains 1,920 × 1,080 × 4 bytes, or 7.91 MiB.
+Implicit sharing keeps cache and presenter handles on the same texture data.
+Paint metrics retain exactly the most recent 180 floating-point samples.
+
+Generation duration is hardware- and wallpaper-dependent and is reported by the
+demo. Expensive generation remains off the GUI thread.
+
+## Verification
+
+Unit tests cover:
+
+- Every wallpaper placement mode.
+- Native-pixel and Qt-DIP geometry, including negative origins and mixed scale.
+- Mixed-DPI logical gaps, native boundary coverage, and DPR handoff snapshots.
+- Adjacent-screen seam continuity and byte-identical output beyond blur support.
+- Center-linear reduction and both blur paths.
+- Light and dark material processing.
+- Cache identity, stale generation rejection, and worker shutdown behavior.
+- Theme invalidation and fallback presentation.
+- Explicit wallpaper validation and Qt display normalization.
+
+Cross-platform visual fixtures use deterministic wallpapers, screen bindings,
+theme, placement, and recipe versions. Windows fixture output is the initial
+reference dataset. Linux and macOS compare their CuteMica output with that same
+dataset after normalizing image color format and display scale.
+
+The project verification command checks formatting, linting, strict typing,
+tests, offscreen 600-frame renderer and widget motion benchmarks, and a portable
+GUI sequence that generates a material, changes the theme, regenerates, and
+exits successfully. All automated Qt work uses the offscreen platform and never
+opens or moves a real desktop window.
+
+## Delivery sequence
+
+1. Maintain the Windows provider and shared reference renderer.
+2. Add macOS wallpaper discovery and change notifications behind normalized
+   provider interfaces.
+3. Add Linux desktop providers, beginning with environments that expose stable
+   wallpaper and global-window geometry.
+4. Run the same deterministic material and geometry fixtures on each platform.
+5. Publish platform capability limits and performance measurements without
+   changing the shared recipe.
+
+CuteMica is ready for a platform when its provider supplies trustworthy state,
+the shared renderer passes deterministic fixtures, theme changes regenerate the
+material, movement stays desktop-registered where geometry is available, and
+the portable GUI smoke test passes without platform-native visual effects.

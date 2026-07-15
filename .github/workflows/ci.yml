@@ -1,0 +1,135 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Quality
+    runs-on: ubuntu-24.04
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m ruff format --check .
+      - run: python -m ruff check .
+      - run: python -m mypy --strict src tests
+
+  portable:
+    name: Portable / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2025, ubuntu-24.04, macos-15, macos-15-intel]
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m pytest -q
+      - name: Portable demo smoke
+        run: >-
+          python -m cutemica.demo.main
+          --wallpaper tests/assets/ci-wallpaper.ppm
+          --smoke-test
+
+  linux-x11:
+    name: Native Linux X11
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install X11 runtime
+        run: >-
+          sudo apt-get update && sudo apt-get install -y
+          xvfb libegl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4
+          libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0
+          libxcb-shape0 libxcb-xfixes0
+      - run: python -m pip install -e ".[dev]"
+      - name: Native geometry smoke
+        run: xvfb-run -a env QT_QPA_PLATFORM=xcb python -m pytest -q tests/test_native_qt_smoke.py
+      - name: Native demo smoke
+        run: >-
+          xvfb-run -a env QT_QPA_PLATFORM=xcb
+          python -m cutemica.demo.main
+          --wallpaper tests/assets/ci-wallpaper.ppm
+          --smoke-test
+
+  macos-cocoa:
+    name: Native macOS Cocoa
+    runs-on: macos-15
+    env:
+      QT_QPA_PLATFORM: cocoa
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m pytest -q tests/test_native_qt_smoke.py
+      - name: Native demo smoke
+        run: >-
+          python -m cutemica.demo.main
+          --wallpaper tests/assets/ci-wallpaper.ppm
+          --smoke-test
+
+  package:
+    name: Package
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m build
+      - run: python -m twine check dist/*
+      - run: python -m venv wheel-test
+      - run: wheel-test/bin/python -m pip install dist/*.whl
+      - run: wheel-test/bin/python -c "import cutemica; print(cutemica.__version__)"
+
+  performance-sentinel:
+    name: Performance sentinel
+    runs-on: ubuntu-24.04
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: python -m pip install -e ".[dev]"
+      - run: cutemica-benchmark-motion --frames 600 --p95-budget-ms 10
+      - run: cutemica-benchmark-widget-motion --frames 600 --p95-budget-ms 10
