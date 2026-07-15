@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import winreg
+import sys
 from pathlib import Path
 
 from cutemica.enums import WallpaperPlacement
@@ -12,6 +12,21 @@ from cutemica.providers.capabilities import (
 from cutemica.wallpaper import WallpaperSnapshot, WallpaperSource
 
 DESKTOP_KEY = r"Control Panel\Desktop"
+
+if sys.platform == "win32":
+    import winreg
+
+    def _read_desktop_settings() -> tuple[object, object, object]:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, DESKTOP_KEY) as key:
+            wallpaper_value, _ = winreg.QueryValueEx(key, "WallPaper")
+            style_value, _ = winreg.QueryValueEx(key, "WallpaperStyle")
+            tile_value, _ = winreg.QueryValueEx(key, "TileWallpaper")
+        return wallpaper_value, style_value, tile_value
+
+else:
+
+    def _read_desktop_settings() -> tuple[object, object, object]:
+        raise RuntimeError("Windows wallpaper settings require Windows")
 
 
 class WindowsWallpaperProvider:
@@ -34,10 +49,7 @@ class WindowsWallpaperProvider:
 
 
 def discover_windows_wallpaper() -> WallpaperSnapshot:
-    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, DESKTOP_KEY) as key:
-        wallpaper_value, _ = winreg.QueryValueEx(key, "WallPaper")
-        style_value, _ = winreg.QueryValueEx(key, "WallpaperStyle")
-        tile_value, _ = winreg.QueryValueEx(key, "TileWallpaper")
+    wallpaper_value, style_value, tile_value = _read_desktop_settings()
 
     path = Path(str(wallpaper_value))
     if not path.is_file():
