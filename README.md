@@ -85,7 +85,9 @@ preserves all four motion phases of a quarter-resolution texture. A pure slice
 planner intersects displays in native physical desktop coordinates, then maps
 the targets into the current widget paint space. A window crossing displays
 therefore uses both cached materials without a whole-window screen switch,
-fallback gap, or Qt mixed-DPI anchor jump.
+fallback gap, or Qt mixed-DPI anchor jump. Outer window edges retain one source
+texel of bilinear-filter support, so wallpaper features enter continuously
+instead of appearing late at the edge of a moving window.
 
 The hot path performs no wallpaper/display query, wallpaper decode, composition,
 blur, material generation, or large allocation. Windows reads the native client
@@ -110,6 +112,7 @@ Run the repeatable renderer and real-widget benchmarks with:
 ```text
 cutemica-benchmark-motion --frames 2000 --p95-budget-ms 1.5
 cutemica-benchmark-widget-motion --frames 2000 --p95-budget-ms 1.5
+cutemica-benchmark-native-drag --frames 600 --stability-frames 96
 ```
 
 The renderer benchmark draws into an offscreen `QImage`. The widget benchmark
@@ -120,6 +123,16 @@ renderer measured 0.188–0.193 ms median and 0.226–0.455 ms p95; the real wid
 path measured 0.199–0.219 ms median and 0.243–0.484 ms p95. The worst frames
 were 2.644 ms and 2.113 ms, respectively, below the 6.94 ms budget for 144 Hz
 presentation.
+
+The native-drag probe creates an opacity-zero Qt tool window on a real desktop
+platform, drives actual native move events and widget backing-store paints, and
+captures only its own material widget. It verifies exact global translation on
+Windows, X11, and macOS, stable screen-local output on Wayland, unchanged
+`QPixmap` cache identities, bounded timing storage, and zero regeneration or
+fallback during movement. It never captures the desktop or other windows. The
+default hosted-runner budgets are 10 ms for the complete move cycle, 2 ms for
+geometry, and 5 ms each for presentation and paint; exact pixel registration is
+still required.
 
 ## Reference contract
 
@@ -154,9 +167,10 @@ the tests, benchmarks, and smoke sequence on its offscreen platform, so
 automated verification never opens or moves a desktop window.
 
 GitHub Actions repeats the deterministic renderer and Qt tests on Windows,
-Ubuntu, Apple Silicon macOS, and Intel macOS. Separate jobs exercise X11 under
-Xvfb, real GNOME/Cinnamon/MATE/XFCE/LXQt settings implementations, and the
-native Cocoa Qt backend on Apple Silicon and Intel. Each native macOS job changes
+Ubuntu, Apple Silicon macOS, and Intel macOS. Native drag probes exercise the
+Windows, X11, and Cocoa platform plugins plus isolated GNOME, Plasma, and
+Cinnamon Wayland compositors. Separate jobs exercise real
+GNOME/Cinnamon/MATE/XFCE/LXQt settings implementations. Each native macOS job changes
 the hosted runner's AppKit wallpaper twice, verifies that the real CuteMica
 provider and monitor publish the transition, and restores the original desktop
 state. CI also builds and installs distribution artifacts and runs the real
