@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import time
+from contextlib import suppress
 from pathlib import Path
 
 import pytest
@@ -24,7 +25,9 @@ pytestmark = pytest.mark.skipif(
 
 def test_plasma_shell_reports_configured_wallpaper(tmp_path: Path) -> None:
     wallpaper = tmp_path / "plasma.png"
+    next_wallpaper = tmp_path / "plasma-next.png"
     Image.new("RGB", (16, 9), (40, 80, 120)).save(wallpaper)
+    Image.new("RGB", (16, 9), (120, 80, 40)).save(next_wallpaper)
     environment = os.environ.copy()
     environment.update(
         {
@@ -50,13 +53,19 @@ def test_plasma_shell_reports_configured_wallpaper(tmp_path: Path) -> None:
         geometry = Rect(0, 0, 1920, 1080)
         binding = ScreenBinding("virtual", geometry, "screen", geometry, 1.0)
 
-        snapshot = PlasmaWallpaperProvider().discover((binding,))
+        provider = PlasmaWallpaperProvider()
+        snapshot = provider.discover((binding,))
         source = snapshot.source_for(binding)
 
         assert source.path == wallpaper
         assert source.placement is WallpaperPlacement.FILL
         assert source.background_color == (0x12, 0x3A, 0xBC)
         assert _system_theme(environment) == "Dark"
+        _evaluate_script(_configure_slideshow_script(tmp_path))
+        assert _wait_for_slideshow_images(provider, binding) == {
+            wallpaper,
+            next_wallpaper,
+        }
         completed = subprocess.run(
             (
                 sys.executable,
@@ -107,6 +116,35 @@ def _configure_script(wallpaper: Path) -> str:
         'desktop.writeConfig("Color", "#123abc");'
         "});"
     )
+
+
+def _configure_slideshow_script(directory: Path) -> str:
+    return (
+        "desktops().forEach(desktop => {"
+        'desktop.wallpaperPlugin = "org.kde.slideshow";'
+        "desktop.currentConfigGroup = "
+        '["Wallpaper", "org.kde.slideshow", "General"];'
+        f'desktop.writeConfig("SlidePaths", ["{directory}"]);'
+        'desktop.writeConfig("SlideInterval", 1);'
+        'desktop.writeConfig("SlideshowMode", 1);'
+        'desktop.writeConfig("FillMode", 2);'
+        "});"
+    )
+
+
+def _wait_for_slideshow_images(
+    provider: PlasmaWallpaperProvider,
+    binding: ScreenBinding,
+) -> set[Path]:
+    images: set[Path] = set()
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        with suppress(OSError, RuntimeError):
+            images.add(provider.discover((binding,)).source_for(binding).path)
+        if len(images) >= 2:
+            return images
+        time.sleep(0.2)
+    raise RuntimeError(f"Plasma slideshow exposed only: {sorted(images)}")
 
 
 def _write_dark_kdeglobals(config_home: Path) -> None:

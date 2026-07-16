@@ -66,9 +66,10 @@ The shared change detector tracks both source metadata and file revisions, so a
 provider can publish a new path or update a stable cache file. Windows reads the
 current per-monitor image through `IDesktopWallpaper`, including the current
 image selected by a Windows slideshow. GNOME selects its light- or dark-specific
-URI, KDE Plasma publishes one source per screen, and macOS reads source, scaling,
-clipping, and fill-color metadata for each AppKit screen. Live/video wallpapers
-and time-selected frames within dynamic image formats are outside the current
+URI, KDE Plasma publishes one source per screen and exposes the current image
+saved by its slideshow backend, and macOS reads source, scaling, clipping, and
+fill-color metadata for each AppKit screen. Live/video wallpapers and
+time-selected frames within dynamic image formats are outside the current
 provider contract.
 
 X11, Windows, and macOS expose global window geometry and provide
@@ -156,9 +157,11 @@ GitHub Actions repeats the deterministic renderer and Qt tests on Windows,
 Ubuntu, Apple Silicon macOS, and Intel macOS. Separate jobs exercise X11 under
 Xvfb, real GNOME/Cinnamon/MATE/XFCE/LXQt settings implementations, and the
 native Cocoa Qt backend. CI also builds and installs distribution artifacts and
-runs a relaxed hosted-runner performance sentinel. The 1.5 ms performance gate
-remains tied to the reference workstation because shared CI timing is inherently
-noisy.
+runs the real CuteMica launch path inside isolated GNOME, Cinnamon, Plasma,
+MATE, XFCE, and LXQt sessions across their supported X11 and Wayland modes. A
+relaxed hosted-runner performance sentinel complements these compatibility jobs.
+The 1.5 ms performance gate remains tied to the reference workstation because
+shared CI timing is inherently noisy.
 
 ## Code layout
 

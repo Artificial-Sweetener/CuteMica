@@ -44,7 +44,7 @@ class PlasmaDesktop:
 
 
 class PlasmaWallpaperProvider:
-    """Read per-screen static image wallpaper state from Plasma Shell."""
+    """Read current per-screen image wallpaper state from Plasma Shell."""
 
     def __init__(self, runner: CommandRunner | None = None) -> None:
         self._run = runner or _run_plasma_script
@@ -70,9 +70,10 @@ class PlasmaWallpaperProvider:
         desktops = _parse_desktops(self._run(("plasma", _SCRIPT)))
         screen_sources: list[ScreenWallpaper] = []
         for desktop in desktops:
-            if desktop.plugin != "org.kde.image":
+            if desktop.plugin not in {"org.kde.image", "org.kde.slideshow"}:
                 raise RuntimeError(
-                    f"Plasma wallpaper plugin {desktop.plugin!r} is not a static image"
+                    f"Plasma wallpaper plugin {desktop.plugin!r} does not expose "
+                    "a current image"
                 )
             if desktop.screen < 0 or desktop.screen >= len(bindings):
                 continue

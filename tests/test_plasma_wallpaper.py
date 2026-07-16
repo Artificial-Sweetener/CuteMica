@@ -46,11 +46,30 @@ def test_plasma_publishes_per_screen_sources(tmp_path: Path) -> None:
     assert snapshot.source_for(bindings[1]).placement is WallpaperPlacement.FIT
 
 
-def test_plasma_rejects_live_wallpaper_plugins(tmp_path: Path) -> None:
+def test_plasma_reads_slideshow_current_image(tmp_path: Path) -> None:
+    current = tmp_path / "current.png"
+    Image.new("RGB", (8, 8)).save(current)
     records = [
         {
             "screen": 0,
             "plugin": "org.kde.slideshow",
+            "image": current.as_uri(),
+            "fillMode": 2,
+            "color": "#000000",
+        }
+    ]
+    provider = PlasmaWallpaperProvider(lambda _arguments: json.dumps(records))
+
+    snapshot = provider.discover((_binding("screen", 0),))
+
+    assert snapshot.default_source.path == current
+
+
+def test_plasma_rejects_plugins_without_a_current_image(tmp_path: Path) -> None:
+    records = [
+        {
+            "screen": 0,
+            "plugin": "org.kde.video",
             "image": str(tmp_path),
             "fillMode": 2,
             "color": "#000000",
@@ -58,5 +77,5 @@ def test_plasma_rejects_live_wallpaper_plugins(tmp_path: Path) -> None:
     ]
     provider = PlasmaWallpaperProvider(lambda _arguments: json.dumps(records))
 
-    with pytest.raises(RuntimeError, match="not a static image"):
+    with pytest.raises(RuntimeError, match="does not expose a current image"):
         provider.discover((_binding("screen", 0),))

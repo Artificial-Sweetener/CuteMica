@@ -127,6 +127,63 @@ jobs:
           dbus-run-session --
           python -m pytest -q tests/integration/test_linux_desktop_contracts.py
 
+  linux-desktop-sessions:
+    name: Real Linux desktop sessions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install desktop sessions and virtual display runtimes
+        run: >-
+          sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive
+          apt-get install -y
+          cinnamon dbus-x11 gnome-shell kwin-wayland kwin-x11
+          libegl1 libxcb-cursor0 libxkbcommon-x11-0
+          lxqt-core mate-desktop-environment-core openbox
+          plasma-workspace qdbus-qt6 qt6-wayland
+          xfce4 x11-utils xvfb
+      - run: python -m pip install -e ".[dev]"
+      - name: GNOME X11 session
+        run: >-
+          dbus-run-session -- xvfb-run -a env
+          CUTEMICA_GNOME_X11_SESSION=1
+          python -m pytest -q tests/integration/test_gnome_x11_session.py
+      - name: Cinnamon X11 session
+        run: >-
+          dbus-run-session -- xvfb-run -a env
+          CUTEMICA_CINNAMON_X11_SESSION=1
+          python -m pytest -q tests/integration/test_cinnamon_x11_session.py
+      - name: Plasma X11 and slideshow session
+        run: >-
+          dbus-run-session -- xvfb-run -a env
+          CUTEMICA_PLASMA_SESSION=1
+          python -m pytest -q tests/integration/test_plasma_session.py
+      - name: Lightweight X11 sessions
+        run: >-
+          dbus-run-session -- xvfb-run -a env
+          CUTEMICA_LIGHTWEIGHT_X11_SESSIONS=1
+          python -m pytest -q
+          tests/integration/test_mate_x11_session.py
+          tests/integration/test_xfce_x11_session.py
+          tests/integration/test_lxqt_x11_session.py
+      - name: GNOME Wayland session
+        run: >-
+          dbus-run-session -- env CUTEMICA_GNOME_WAYLAND_SESSION=1
+          python -m pytest -q tests/integration/test_gnome_wayland_session.py
+      - name: Plasma Wayland session
+        run: >-
+          dbus-run-session -- env CUTEMICA_PLASMA_WAYLAND_SESSION=1
+          python -m pytest -q tests/integration/test_plasma_wayland_session.py
+      - name: Cinnamon Wayland session
+        run: >-
+          dbus-run-session -- env CUTEMICA_CINNAMON_WAYLAND_SESSION=1
+          python -m pytest -q tests/integration/test_cinnamon_wayland_session.py
+
   macos-cocoa:
     name: Native macOS Cocoa
     runs-on: macos-15
