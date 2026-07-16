@@ -4,6 +4,21 @@ from pathlib import Path
 from cutemica.enums import WallpaperPlacement
 from cutemica.geometry import ScreenBinding
 
+SourceStateSignature = tuple[
+    str,
+    int,
+    int,
+    int,
+    int,
+    WallpaperPlacement,
+    tuple[int, int, int],
+]
+SnapshotStateSignature = tuple[
+    str,
+    SourceStateSignature,
+    tuple[tuple[str, SourceStateSignature], ...],
+]
+
 
 @dataclass(frozen=True, slots=True)
 class WallpaperSource:
@@ -20,7 +35,30 @@ class WallpaperSource:
         """Return a cache signature without exposing the path in diagnostics."""
 
         stat = self.path.stat()
-        return f"{self.path.resolve()}:{stat.st_size}:{stat.st_mtime_ns}"
+        return ":".join(
+            (
+                str(self.path.resolve()),
+                str(stat.st_size),
+                str(stat.st_mtime_ns),
+                str(stat.st_ctime_ns),
+                str(stat.st_ino),
+            )
+        )
+
+    @property
+    def state_signature(self) -> SourceStateSignature:
+        """Capture metadata and file revision for change detection."""
+
+        stat = self.path.stat()
+        return (
+            str(self.path.resolve()),
+            stat.st_size,
+            stat.st_mtime_ns,
+            stat.st_ctime_ns,
+            stat.st_ino,
+            self.placement,
+            self.background_color,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +96,19 @@ class WallpaperSnapshot:
                 if item.provider_screen_id == binding.provider_screen_id
             ),
             self.default_source,
+        )
+
+    @property
+    def state_signature(self) -> SnapshotStateSignature:
+        """Capture provider metadata and every source file revision."""
+
+        return (
+            self.provider_name,
+            self.default_source.state_signature,
+            tuple(
+                (item.provider_screen_id, item.source.state_signature)
+                for item in self.per_screen
+            ),
         )
 
     @property

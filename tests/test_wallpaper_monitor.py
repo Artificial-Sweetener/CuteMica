@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from PIL import Image
@@ -56,3 +57,22 @@ def test_monitor_publishes_only_changed_snapshots(qtbot: QtBot, tmp_path: Path) 
         monitor.poll()
 
     assert changed.args == [second]
+
+
+def test_monitor_publishes_stable_path_content_changes(
+    qtbot: QtBot, tmp_path: Path
+) -> None:
+    path = tmp_path / "changing.png"
+    Image.new("RGB", (8, 8), (10, 20, 30)).save(path)
+    snapshot = WallpaperSnapshot.single(
+        "test", WallpaperSource(path, WallpaperPlacement.FILL)
+    )
+    monitor = WallpaperMonitor(SequenceProvider([snapshot]), (), snapshot)
+    previous = path.stat()
+    Image.new("RGB", (8, 8), (30, 20, 10)).save(path)
+    os.utime(path, ns=(previous.st_atime_ns, previous.st_mtime_ns + 1_000_000_000))
+
+    with qtbot.waitSignal(monitor.snapshot_changed, timeout=500) as changed:
+        monitor.poll()
+
+    assert changed.args == [snapshot]

@@ -54,6 +54,7 @@ class WallpaperMonitor(QObject):
         self._provider = provider
         self._bindings = bindings
         self._current = initial
+        self._current_state = initial.state_signature
         self._active_job: WallpaperPollJob | None = None
         self._timer = QTimer(self)
         self._timer.setInterval(interval_ms)
@@ -82,10 +83,9 @@ class WallpaperMonitor(QObject):
     def _poll_on_main_thread(self) -> None:
         try:
             snapshot = self._provider.discover(self._bindings)
+            self._publish(snapshot)
         except Exception as error:  # noqa: BLE001 - native provider boundary
             self.failed.emit(str(error))
-            return
-        self._publish(snapshot)
 
     @Slot(object)
     def _on_completed(self, value: object) -> None:
@@ -99,7 +99,13 @@ class WallpaperMonitor(QObject):
         self.failed.emit(message)
 
     def _publish(self, snapshot: WallpaperSnapshot) -> None:
-        if snapshot == self._current:
+        try:
+            state = snapshot.state_signature
+        except OSError as error:
+            self.failed.emit(str(error))
+            return
+        if state == self._current_state:
             return
         self._current = snapshot
+        self._current_state = state
         self.snapshot_changed.emit(snapshot)

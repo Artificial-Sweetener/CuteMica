@@ -1,78 +1,84 @@
-from __future__ import annotations
+"""Windows per-display wallpaper provider."""
 
-import sys
-from pathlib import Path
+from collections.abc import Callable
 
-from cutemica.enums import WallpaperPlacement
-from cutemica.geometry import ScreenBinding
+from cutemica.geometry import Rect, ScreenBinding
 from cutemica.providers.capabilities import (
     ProviderCapabilities,
     WindowRegistration,
 )
-from cutemica.wallpaper import WallpaperSnapshot, WallpaperSource
+from cutemica.providers.windows_desktop_api import (
+    WindowsDesktopRecord,
+    read_windows_desktops,
+)
+from cutemica.wallpaper import ScreenWallpaper, WallpaperSnapshot, WallpaperSource
 
-DESKTOP_KEY = r"Control Panel\Desktop"
-
-if sys.platform == "win32":
-    import winreg
-
-    def _read_desktop_settings() -> tuple[object, object, object]:
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, DESKTOP_KEY) as key:
-            wallpaper_value, _ = winreg.QueryValueEx(key, "WallPaper")
-            style_value, _ = winreg.QueryValueEx(key, "WallpaperStyle")
-            tile_value, _ = winreg.QueryValueEx(key, "TileWallpaper")
-        return wallpaper_value, style_value, tile_value
-
-else:
-
-    def _read_desktop_settings() -> tuple[object, object, object]:
-        raise RuntimeError("Windows wallpaper settings require Windows")
+DesktopReader = Callable[[], tuple[WindowsDesktopRecord, ...]]
 
 
 class WindowsWallpaperProvider:
-    """Read Windows wallpaper metadata from the user desktop settings."""
+    """Read current Windows wallpaper metadata for every Qt display."""
+
+    def __init__(self, reader: DesktopReader | None = None) -> None:
+        self._read = reader or read_windows_desktops
 
     @property
     def name(self) -> str:
-        return "windows"
+        return "windows-desktop-api"
 
     @property
     def capabilities(self) -> ProviderCapabilities:
-        return ProviderCapabilities(True, True, False, WindowRegistration.GLOBAL)
+        return ProviderCapabilities(True, True, True, WindowRegistration.GLOBAL)
 
     @property
     def requires_main_thread(self) -> bool:
         return False
 
-    def discover(self, _bindings: tuple[ScreenBinding, ...]) -> WallpaperSnapshot:
-        return discover_windows_wallpaper()
-
-
-def discover_windows_wallpaper() -> WallpaperSnapshot:
-    wallpaper_value, style_value, tile_value = _read_desktop_settings()
-
-    path = Path(str(wallpaper_value))
-    if not path.is_file():
-        transcoded = (
-            Path.home() / "AppData/Local/Microsoft/Windows/Themes/TranscodedWallpaper"
+    def discover(self, bindings: tuple[ScreenBinding, ...]) -> WallpaperSnapshot:
+        records = self._read()
+        if not records:
+            raise RuntimeError("Windows did not report any desktop images")
+        sources = tuple(
+            ScreenWallpaper(
+                binding.provider_screen_id,
+                WallpaperSource(
+                    record.path,
+                    record.placement,
+                    record.background_color,
+                ),
+            )
+            for binding, record in _match_records(records, bindings)
         )
-        path = transcoded if transcoded.is_file() else path
-    return WallpaperSnapshot(
-        provider_name="windows",
-        default_source=WallpaperSource(
-            path=path,
-            placement=_placement(str(style_value), str(tile_value)),
-        ),
-    )
+        snapshot = WallpaperSnapshot(self.name, sources[0].source, sources)
+        snapshot.validate()
+        return snapshot
 
 
-def _placement(style: str, tiled: str) -> WallpaperPlacement:
-    if tiled == "1":
-        return WallpaperPlacement.TILE
-    return {
-        "22": WallpaperPlacement.SPAN,
-        "10": WallpaperPlacement.FILL,
-        "6": WallpaperPlacement.FIT,
-        "2": WallpaperPlacement.STRETCH,
-        "0": WallpaperPlacement.CENTER,
-    }.get(style, WallpaperPlacement.FILL)
+def _match_records(
+    records: tuple[WindowsDesktopRecord, ...],
+    bindings: tuple[ScreenBinding, ...],
+) -> tuple[tuple[ScreenBinding, WindowsDesktopRecord], ...]:
+    if not bindings:
+        raise RuntimeError("Windows wallpaper discovery requires a screen binding")
+    available = list(records)
+    matches: list[tuple[ScreenBinding, WindowsDesktopRecord]] = []
+    for binding in bindings:
+        if not available:
+            break
+        record = max(
+            available,
+            key=lambda item: _overlap_area(
+                item.native_geometry_px, binding.native_geometry_px
+            ),
+        )
+        available.remove(record)
+        matches.append((binding, record))
+    if len(matches) != len(bindings):
+        raise RuntimeError("Could not associate every Qt screen with a Windows monitor")
+    return tuple(matches)
+
+
+def _overlap_area(first: Rect, second: Rect) -> int:
+    width = max(0, min(first.right, second.right) - max(first.x, second.x))
+    height = max(0, min(first.bottom, second.bottom) - max(first.y, second.y))
+    return width * height

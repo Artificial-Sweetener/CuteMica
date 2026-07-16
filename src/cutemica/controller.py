@@ -32,6 +32,7 @@ class MaterialController(QObject):
         if not bindings:
             raise ValueError("At least one screen binding is required")
         self._wallpaper = wallpaper
+        self._wallpaper_state = wallpaper.state_signature
         self._bindings = bindings
         self._theme = theme
         self._recipe = recipe or MicaAltRecipe()
@@ -62,9 +63,11 @@ class MaterialController(QObject):
         """Publish a new provider snapshot and regenerate affected materials."""
 
         wallpaper.validate()
-        if wallpaper == self._wallpaper:
+        state = wallpaper.state_signature
+        if state == self._wallpaper_state:
             return
         self._wallpaper = wallpaper
+        self._wallpaper_state = state
         self._cache.clear()
         self.wallpaper_changed.emit(wallpaper)
         self.refresh()

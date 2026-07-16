@@ -49,6 +49,13 @@ def test_real_gnome_settings_and_change_monitor(
         monitor.poll()
 
     assert changed.args[0].default_source.path == second
+    previous = second.stat()
+    Image.new("RGB", (16, 9), (120, 80, 40)).save(second)
+    os.utime(second, ns=(previous.st_atime_ns, previous.st_mtime_ns + 1_000_000_000))
+    with qtbot.waitSignal(monitor.snapshot_changed, timeout=5_000) as changed_in_place:
+        monitor.poll()
+
+    assert changed_in_place.args[0].default_source.path == second
     theme_provider = create_system_theme_provider()
     assert theme_provider is not None
     theme_monitor = ThemeMonitor(theme_provider, ResolvedTheme.DARK)

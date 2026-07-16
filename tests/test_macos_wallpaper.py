@@ -39,3 +39,29 @@ def test_macos_matches_cocoa_screens_to_qt_coordinates(tmp_path: Path) -> None:
     assert snapshot.source_for(bindings[0]).path == main_path
     assert snapshot.source_for(bindings[1]).path == upper_path
     assert snapshot.source_for(bindings[1]).background_color == (4, 5, 6)
+
+
+def test_macos_provider_reads_fresh_records_for_image_changes(tmp_path: Path) -> None:
+    first_path = tmp_path / "first.png"
+    second_path = tmp_path / "second.png"
+    Image.new("RGB", (8, 8)).save(first_path)
+    Image.new("RGB", (8, 8)).save(second_path)
+    frame = (0.0, 0.0, 1920.0, 1080.0)
+    geometry = Rect(0, 0, 1920, 1080)
+    binding = ScreenBinding("main", geometry, "main", geometry, 1.0)
+    paths = iter((first_path, second_path))
+
+    def read() -> tuple[MacDesktopRecord, ...]:
+        return (
+            MacDesktopRecord(
+                next(paths),
+                frame,
+                WallpaperPlacement.FILL,
+                (0, 0, 0),
+            ),
+        )
+
+    provider = MacOSWallpaperProvider(read)
+
+    assert provider.discover((binding,)).default_source.path == first_path
+    assert provider.discover((binding,)).default_source.path == second_path

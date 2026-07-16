@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from PIL import Image
@@ -38,3 +39,30 @@ def test_controller_generates_material_off_thread(
         geometry.width * MicaAltRecipe().texture_scale_for(binding.device_pixel_ratio)
     )
     assert material.args[2] > 0
+
+
+def test_controller_regenerates_when_stable_wallpaper_path_changes(
+    qtbot: QtBot,
+    tmp_path: Path,
+) -> None:
+    wallpaper_path = tmp_path / "changing.png"
+    Image.new("RGB", (64, 36), (30, 100, 180)).save(wallpaper_path)
+    geometry = Rect(0, 0, 64, 36)
+    binding = ScreenBinding("screen", geometry, "screen", geometry, 1.0)
+    snapshot = WallpaperSnapshot.single(
+        "test", WallpaperSource(wallpaper_path, WallpaperPlacement.FILL)
+    )
+    controller = MaterialController(
+        snapshot,
+        (binding,),
+        ThemeController(ThemeMode.LIGHT),
+    )
+    previous = wallpaper_path.stat()
+    Image.new("RGB", (64, 36), (180, 100, 30)).save(wallpaper_path)
+    os.utime(
+        wallpaper_path,
+        ns=(previous.st_atime_ns, previous.st_mtime_ns + 1_000_000_000),
+    )
+
+    with qtbot.waitSignal(controller.wallpaper_changed, timeout=500):
+        controller.set_wallpaper(snapshot)

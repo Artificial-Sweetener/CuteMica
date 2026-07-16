@@ -38,7 +38,7 @@ python -m pip install -e ".[dev]"
 ## Launch the demo
 
 Windows, macOS, GNOME-family desktops, KDE Plasma, MATE, XFCE, and LXQt can
-discover supported static-image wallpapers:
+discover supported image wallpapers:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\run_demo.ps1
@@ -62,10 +62,14 @@ and LXQt, then monitors it asynchronously. Settings queries never run during
 painting or window movement.
 
 Wallpaper metadata is polled at low frequency outside movement and paint paths.
-GNOME selects its light- or dark-specific URI, KDE Plasma publishes one source
-per screen, and macOS reads source, scaling, clipping, and fill-color metadata
-for each AppKit screen. Unsupported live, slideshow, and dynamic-image providers
-fail with an actionable message instead of approximating an unrelated image.
+The shared change detector tracks both source metadata and file revisions, so a
+provider can publish a new path or update a stable cache file. Windows reads the
+current per-monitor image through `IDesktopWallpaper`, including the current
+image selected by a Windows slideshow. GNOME selects its light- or dark-specific
+URI, KDE Plasma publishes one source per screen, and macOS reads source, scaling,
+clipping, and fill-color metadata for each AppKit screen. Live/video wallpapers
+and time-selected frames within dynamic image formats are outside the current
+provider contract.
 
 X11, Windows, and macOS expose global window geometry and provide
 desktop-registered material. Standard Wayland clients do not receive their
