@@ -150,22 +150,22 @@ jobs:
       - run: python -m pip install -e ".[dev]"
       - name: GNOME X11 session
         run: >-
-          dbus-run-session -- xvfb-run -a env
+          xvfb-run -a dbus-run-session -- env
           CUTEMICA_GNOME_X11_SESSION=1
           python -m pytest -q tests/integration/test_gnome_x11_session.py
       - name: Cinnamon X11 session
         run: >-
-          dbus-run-session -- xvfb-run -a env
+          xvfb-run -a dbus-run-session -- env
           CUTEMICA_CINNAMON_X11_SESSION=1
           python -m pytest -q tests/integration/test_cinnamon_x11_session.py
       - name: Plasma X11 and slideshow session
         run: >-
-          dbus-run-session -- xvfb-run -a env
+          xvfb-run -a dbus-run-session -- env
           CUTEMICA_PLASMA_SESSION=1
           python -m pytest -q tests/integration/test_plasma_session.py
       - name: Lightweight X11 sessions
         run: >-
-          dbus-run-session -- xvfb-run -a env
+          xvfb-run -a dbus-run-session -- env
           CUTEMICA_LIGHTWEIGHT_X11_SESSIONS=1
           python -m pytest -q
           tests/integration/test_mate_x11_session.py
