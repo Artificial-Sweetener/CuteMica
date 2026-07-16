@@ -1,22 +1,19 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QSignalBlocker, Signal
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QComboBox,
     QFrame,
-    QGridLayout,
     QLabel,
     QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
-from cutemica.enums import ThemeMode
+from cutemica.demo.progress_panel import ProgressPanel
+from cutemica.diagnostics.session import ValidationProgress
 
 
 class ControlPanel(QFrame):
-    theme_mode_changed = Signal(object)
-    refresh_requested = Signal()
     reset_session_requested = Signal()
     export_report_requested = Signal()
 
@@ -36,56 +33,31 @@ class ControlPanel(QFrame):
         )
         subtitle.setWordWrap(True)
 
-        instructions = QLabel(
-            "1. Drag this window around and slowly across both monitors.\n"
-            "2. Switch macOS between Light and Dark appearance.\n"
-            "3. Change the desktop wallpaper and wait a few seconds.\n"
-            "4. Save the test report and send the ZIP file back."
-        )
-        instructions.setObjectName("testInstructions")
-        instructions.setWordWrap(True)
-
-        self._theme = QComboBox()
-        self._theme.addItem("Follow system", ThemeMode.AUTO)
-        self._theme.addItem("Light", ThemeMode.LIGHT)
-        self._theme.addItem("Dark", ThemeMode.DARK)
-
-        refresh = QPushButton("Regenerate material")
+        self._progress = ProgressPanel()
         reset = QPushButton("Start a fresh test")
         export = QPushButton("Save test report to Downloads")
         export.setObjectName("exportReport")
         self._status = QLabel("Waiting for first material generation")
         self._status.setWordWrap(True)
-        self._test_status = QLabel("Moves 0 · waiting for test activity")
-        self._test_status.setWordWrap(True)
         self._export_status = QLabel("")
         self._export_status.setWordWrap(True)
         self._environment = QLabel(wallpaper_description)
         self._environment.setWordWrap(True)
-
-        choices = QGridLayout()
-        choices.addWidget(QLabel("Theme"), 0, 0)
-        choices.addWidget(self._theme, 0, 1)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 22, 24, 22)
         layout.setSpacing(14)
         layout.addWidget(title)
         layout.addWidget(subtitle)
-        layout.addWidget(instructions)
+        layout.addWidget(self._progress)
         layout.addSpacing(6)
-        layout.addLayout(choices)
-        layout.addWidget(refresh)
         layout.addWidget(reset)
         layout.addWidget(export)
         layout.addSpacing(4)
         layout.addWidget(self._status)
-        layout.addWidget(self._test_status)
         layout.addWidget(self._export_status)
         layout.addWidget(self._environment)
 
-        self._theme.currentIndexChanged.connect(self._publish_theme)
-        refresh.clicked.connect(self.refresh_requested)
         reset.clicked.connect(self.reset_session_requested)
         export.clicked.connect(self.export_report_requested)
 
@@ -95,27 +67,14 @@ class ControlPanel(QFrame):
     def set_environment_description(self, description: str) -> None:
         self._environment.setText(description)
 
-    def set_test_status(self, message: str) -> None:
-        self._test_status.setText(message)
+    def set_test_progress(self, progress: ValidationProgress) -> None:
+        self._progress.set_progress(progress)
 
     def set_export_status(self, message: str) -> None:
         self._export_status.setText(message)
 
-    def select_theme_mode(self, mode: ThemeMode) -> None:
-        index = self._theme.findData(mode)
-        if index < 0 or index == self._theme.currentIndex():
-            return
-        blocker = QSignalBlocker(self._theme)
-        self._theme.setCurrentIndex(index)
-        del blocker
-
     def set_theme_style(self, *, dark: bool) -> None:
         self.setStyleSheet(_DARK_STYLE if dark else _LIGHT_STYLE)
-
-    def _publish_theme(self) -> None:
-        mode = self._theme.currentData()
-        if isinstance(mode, ThemeMode):
-            self.theme_mode_changed.emit(mode)
 
 
 _LIGHT_STYLE = """
@@ -127,8 +86,9 @@ QFrame#micaControlPanel {
 }
 QFrame#micaControlPanel QLabel { color: #151515; }
 QLabel#panelTitle { font-size: 20px; font-weight: 600; }
-QLabel#testInstructions { line-height: 1.25; }
-QComboBox, QPushButton {
+QLabel#progressHeading { font-weight: 600; }
+QLabel#completionThanks { font-weight: 600; color: #246b2a; }
+QPushButton {
     min-height: 30px;
     padding: 0 10px;
     background: rgba(255, 255, 255, 210);
@@ -147,8 +107,9 @@ QFrame#micaControlPanel {
 }
 QFrame#micaControlPanel QLabel { color: #f3f3f3; }
 QLabel#panelTitle { font-size: 20px; font-weight: 600; }
-QLabel#testInstructions { line-height: 1.25; }
-QComboBox, QPushButton {
+QLabel#progressHeading { font-weight: 600; }
+QLabel#completionThanks { font-weight: 600; color: #8bdc8b; }
+QPushButton {
     min-height: 30px;
     padding: 0 10px;
     color: #f3f3f3;
@@ -157,5 +118,4 @@ QComboBox, QPushButton {
     border-radius: 5px;
 }
 QPushButton#exportReport { font-weight: 600; }
-QComboBox QAbstractItemView { color: #f3f3f3; background: #303030; }
 """

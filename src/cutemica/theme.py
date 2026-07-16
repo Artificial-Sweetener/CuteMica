@@ -13,6 +13,7 @@ from cutemica.theme_monitor import ThemeMonitor
 
 class ThemeController(QObject):
     theme_changed = Signal(object)
+    system_theme_changed = Signal(object)
     monitoring_failed = Signal(str)
 
     def __init__(
@@ -57,18 +58,23 @@ class ThemeController(QObject):
         self._publish_if_changed()
 
     def _on_system_theme_changed(self, _scheme: Qt.ColorScheme) -> None:
-        if self._provider is None and self._mode is ThemeMode.AUTO:
+        if self._provider is None:
             application = cast(QGuiApplication, QGuiApplication.instance())
-            self._system_theme = self._qt_theme(application)
+            self._publish_system_theme(self._qt_theme(application))
+
+    def _publish_system_theme(self, theme: ResolvedTheme) -> None:
+        if theme is self._system_theme:
+            return
+        self._system_theme = theme
+        self.system_theme_changed.emit(theme)
+        if self._mode is ThemeMode.AUTO:
             self._publish_if_changed()
 
     @Slot(object)
     def _on_provider_theme_changed(self, value: object) -> None:
         if not isinstance(value, ResolvedTheme):
             return
-        self._system_theme = value
-        if self._mode is ThemeMode.AUTO:
-            self._publish_if_changed()
+        self._publish_system_theme(value)
 
     def _publish_if_changed(self) -> None:
         resolved = self._resolve()

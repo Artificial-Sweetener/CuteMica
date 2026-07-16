@@ -53,6 +53,33 @@ def test_session_counts_repeated_appearance_transitions() -> None:
     assert session.payload()["themes_seen"] == ["light"]
 
 
+def test_progress_requires_meaningful_motion_and_all_interactive_checks() -> None:
+    session = ValidationSession(_bindings(), ResolvedTheme.LIGHT, "macos-appkit")
+
+    for x in range(12):
+        session.record_motion(
+            WindowGeometry(FloatRect(x * 10, 20, 400, 300), 400, 300),
+            move_cycle_ms=1,
+            geometry_ms=0.1,
+            presentation_ms=0.8,
+            paint_ms=0.4,
+        )
+    assert session.progress.movement_complete
+    assert not session.progress.complete
+
+    session.record_motion(
+        WindowGeometry(FloatRect(1800, 20, 400, 300), 400, 300),
+        move_cycle_ms=1,
+        geometry_ms=0.1,
+        presentation_ms=0.8,
+        paint_ms=0.4,
+    )
+    session.record_theme(ResolvedTheme.DARK)
+    session.record_wallpaper_change("macos-appkit")
+
+    assert session.progress.complete
+
+
 def _bindings() -> tuple[ScreenBinding, ...]:
     return (
         ScreenBinding(

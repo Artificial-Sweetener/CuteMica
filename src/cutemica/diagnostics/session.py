@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import deque
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from math import ceil
 from statistics import median
@@ -10,6 +11,31 @@ from time import perf_counter
 
 from cutemica.enums import ResolvedTheme
 from cutemica.geometry import ScreenBinding, WindowGeometry
+
+_MOVEMENT_MILESTONE_EVENTS = 12
+
+
+@dataclass(frozen=True, slots=True)
+class ValidationProgress:
+    """User-facing completion state derived from recorded evidence."""
+
+    movement_complete: bool
+    monitors_complete: bool
+    appearance_complete: bool
+    wallpaper_complete: bool
+
+    @property
+    def complete(self) -> bool:
+        """Return whether every interactive check has evidence."""
+
+        return all(
+            (
+                self.movement_complete,
+                self.monitors_complete,
+                self.appearance_complete,
+                self.wallpaper_complete,
+            )
+        )
 
 
 class ValidationSession:
@@ -115,13 +141,14 @@ class ValidationSession:
         self._events.append({"event": "error", **error})
 
     @property
-    def status_text(self) -> str:
-        """Return a compact progress line for the tester UI."""
+    def progress(self) -> ValidationProgress:
+        """Return friendly milestones backed by recorded test evidence."""
 
-        return (
-            f"Moves {self._move_events} · monitor transitions "
-            f"{self._screen_transitions} · appearance changes {self._theme_changes} · "
-            f"wallpaper changes {self._wallpaper_changes}"
+        return ValidationProgress(
+            movement_complete=self._move_events >= _MOVEMENT_MILESTONE_EVENTS,
+            monitors_complete=self._screen_transitions >= 1,
+            appearance_complete=self._theme_changes >= 1,
+            wallpaper_complete=self._wallpaper_changes >= 1,
         )
 
     def payload(self) -> dict[str, object]:

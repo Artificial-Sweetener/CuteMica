@@ -33,8 +33,24 @@ def test_auto_mode_uses_provider_and_publishes_polled_change(qtbot: QtBot) -> No
     assert controller.resolved is ResolvedTheme.DARK
     provider.resolved = ResolvedTheme.LIGHT
     assert controller._monitor is not None
+    system_changes: list[ResolvedTheme] = []
+    controller.system_theme_changed.connect(system_changes.append)
     with qtbot.waitSignal(controller.theme_changed, timeout=2_000) as signal:
         controller._monitor.poll()
 
     assert controller.resolved.value == "light"
     assert signal.args == [ResolvedTheme.LIGHT]
+    assert system_changes == [ResolvedTheme.LIGHT]
+
+
+def test_explicit_mode_still_reports_a_real_system_change(qtbot: QtBot) -> None:
+    provider = MutableThemeProvider(ResolvedTheme.DARK)
+    controller = ThemeController(ThemeMode.LIGHT, provider=provider)
+    provider.resolved = ResolvedTheme.LIGHT
+    assert controller._monitor is not None
+
+    with qtbot.waitSignal(controller.system_theme_changed, timeout=2_000) as signal:
+        controller._monitor.poll()
+
+    assert signal.args == [ResolvedTheme.LIGHT]
+    assert controller.resolved is ResolvedTheme.LIGHT

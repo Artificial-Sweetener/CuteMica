@@ -56,9 +56,6 @@ class DemoWindow(QWidget):
             _environment_description(wallpaper, window_geometry.registration.value),
             self,
         )
-        self._panel.select_theme_mode(theme.mode)
-        self._panel.theme_mode_changed.connect(theme.set_mode)
-        self._panel.refresh_requested.connect(controller.refresh)
         self._panel.reset_session_requested.connect(self._reset_session)
         self._panel.export_report_requested.connect(self._export_report)
         controller.generation_started.connect(self._on_generation_started)
@@ -67,6 +64,7 @@ class DemoWindow(QWidget):
         controller.error.connect(self._on_controller_error)
         controller.wallpaper_changed.connect(self._on_wallpaper_changed)
         theme.theme_changed.connect(self._on_theme_changed)
+        theme.system_theme_changed.connect(self._on_system_theme_changed)
         theme.monitoring_failed.connect(self._on_theme_monitor_failed)
         self._status_timer = QTimer(self)
         self._status_timer.setInterval(250)
@@ -157,6 +155,10 @@ class DemoWindow(QWidget):
     def _on_theme_changed(self, theme_object: object) -> None:
         if isinstance(theme_object, ResolvedTheme):
             self._panel.set_theme_style(dark=theme_object is ResolvedTheme.DARK)
+
+    @Slot(object)
+    def _on_system_theme_changed(self, theme_object: object) -> None:
+        if isinstance(theme_object, ResolvedTheme):
             self._session.record_theme(theme_object)
 
     @Slot(object)
@@ -208,7 +210,7 @@ class DemoWindow(QWidget):
 
     @Slot()
     def _update_test_status(self) -> None:
-        self._panel.set_test_status(self._session.status_text)
+        self._panel.set_test_progress(self._session.progress)
 
     @Slot()
     def _export_report(self) -> None:
