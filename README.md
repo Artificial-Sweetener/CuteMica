@@ -156,11 +156,14 @@ automated verification never opens or moves a desktop window.
 GitHub Actions repeats the deterministic renderer and Qt tests on Windows,
 Ubuntu, Apple Silicon macOS, and Intel macOS. Separate jobs exercise X11 under
 Xvfb, real GNOME/Cinnamon/MATE/XFCE/LXQt settings implementations, and the
-native Cocoa Qt backend. CI also builds and installs distribution artifacts and
-runs the real CuteMica launch path inside isolated GNOME, Cinnamon, Plasma,
-MATE, XFCE, and LXQt sessions across their supported X11 and Wayland modes. A
-relaxed hosted-runner performance sentinel complements these compatibility jobs.
-The 1.5 ms performance gate remains tied to the reference workstation because
+native Cocoa Qt backend on Apple Silicon and Intel. Each native macOS job changes
+the hosted runner's AppKit wallpaper twice, verifies that the real CuteMica
+provider and monitor publish the transition, and restores the original desktop
+state. CI also builds and installs distribution artifacts and runs the real
+CuteMica launch path inside isolated GNOME, Cinnamon, Plasma, MATE, XFCE, and
+LXQt sessions across their supported X11 and Wayland modes. A relaxed
+hosted-runner performance sentinel complements these compatibility jobs. The
+1.5 ms performance gate remains tied to the reference workstation because
 shared CI timing is inherently noisy.
 
 ## Code layout
