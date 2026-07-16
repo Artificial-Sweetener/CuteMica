@@ -93,6 +93,7 @@ QFrame#micaControlPanel {
     border-radius: 12px;
     color: #151515;
 }
+QFrame#micaControlPanel QLabel { color: #151515; }
 QLabel#panelTitle { font-size: 20px; font-weight: 600; }
 QComboBox, QPushButton {
     min-height: 30px;
@@ -110,6 +111,7 @@ QFrame#micaControlPanel {
     border-radius: 12px;
     color: #f3f3f3;
 }
+QFrame#micaControlPanel QLabel { color: #f3f3f3; }
 QLabel#panelTitle { font-size: 20px; font-weight: 600; }
 QComboBox, QPushButton {
     min-height: 30px;
