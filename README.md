@@ -134,7 +134,10 @@ default hosted-runner budgets are 10 ms for the complete move cycle, 2 ms for
 geometry, and 5 ms each for presentation and paint; exact pixel registration is
 still required. Native and reference-workstation probes use elapsed wall time.
 The shared Intel macOS runner uses process CPU time so host descheduling cannot
-masquerade as CuteMica work; the evidence payload always identifies its clock.
+masquerade as CuteMica work. Its hosted-runner ceilings are 16.67 ms for the
+complete move cycle, 8 ms for presentation, and 7 ms for paint; strict pixel,
+cache, fallback, and regeneration invariants remain unchanged. The evidence
+payload always identifies its clock.
 
 ## Reference contract
 

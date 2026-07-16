@@ -201,8 +201,14 @@ jobs:
         include:
           - os: macos-15
             timing-clock: wall
+            move-budget-ms: 10
+            presentation-budget-ms: 5
+            paint-budget-ms: 5
           - os: macos-15-intel
             timing-clock: process
+            move-budget-ms: 16.67
+            presentation-budget-ms: 8
+            paint-budget-ms: 7
     env:
       CUTEMICA_MACOS_WALLPAPER_MUTATION: "1"
       QT_QPA_PLATFORM: cocoa
@@ -228,6 +234,9 @@ jobs:
         run: >-
           cutemica-benchmark-native-drag
           --timing-clock ${{ matrix.timing-clock }}
+          --move-p95-budget-ms ${{ matrix.move-budget-ms }}
+          --presentation-p95-budget-ms ${{ matrix.presentation-budget-ms }}
+          --paint-p95-budget-ms ${{ matrix.paint-budget-ms }}
 
   package:
     name: Package
