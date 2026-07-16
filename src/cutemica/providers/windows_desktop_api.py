@@ -6,7 +6,7 @@ import ctypes
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from cutemica.enums import WallpaperPlacement
@@ -81,7 +81,7 @@ class _DesktopWallpaper:
     """Own one COM apartment and IDesktopWallpaper interface pointer."""
 
     def __init__(self) -> None:
-        self._ole32 = ctypes.OleDLL("ole32")
+        self._ole32 = cast(Any, ctypes).OleDLL("ole32")
         _configure_ole32(self._ole32)
         self._needs_uninitialize = False
         result = int(self._ole32.CoInitializeEx(None, 2))
@@ -169,7 +169,7 @@ class _DesktopWallpaper:
             self._ole32.CoTaskMemFree(pointer)
 
     def _method(self, index: int, result: Any, *arguments: Any) -> Any:
-        prototype = ctypes.WINFUNCTYPE(result, ctypes.c_void_p, *arguments)
+        prototype = cast(Any, ctypes).WINFUNCTYPE(result, ctypes.c_void_p, *arguments)
         return prototype(self._vtable[index])
 
 
