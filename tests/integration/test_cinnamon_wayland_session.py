@@ -15,6 +15,7 @@ from cutemica.enums import WallpaperPlacement
 from cutemica.geometry import Rect, ScreenBinding
 from cutemica.providers.capabilities import WindowRegistration
 from cutemica.providers.gnome_wallpaper import GnomeWallpaperProvider
+from tests.integration.dbus_environment import update_dbus_activation_environment
 
 pytestmark = pytest.mark.skipif(
     sys.platform != "linux"
@@ -112,6 +113,16 @@ def test_cinnamon_wayland_provider_and_demo(
             "QT_QPA_PLATFORM": "wayland",
             "WAYLAND_DISPLAY": child_socket,
         }
+        update_dbus_activation_environment(
+            demo_environment,
+            (
+                "QT_QPA_PLATFORM",
+                "WAYLAND_DISPLAY",
+                "XDG_CURRENT_DESKTOP",
+                "XDG_RUNTIME_DIR",
+                "XDG_SESSION_TYPE",
+            ),
+        )
         assert _system_theme(demo_environment) == "Dark"
         completed = subprocess.run(
             (

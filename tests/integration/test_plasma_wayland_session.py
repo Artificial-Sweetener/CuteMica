@@ -16,6 +16,7 @@ from cutemica.enums import WallpaperPlacement
 from cutemica.geometry import Rect, ScreenBinding
 from cutemica.providers.capabilities import WindowRegistration
 from cutemica.providers.plasma_wallpaper import PlasmaWallpaperProvider
+from tests.integration.dbus_environment import update_dbus_activation_environment
 
 pytestmark = pytest.mark.skipif(
     sys.platform != "linux" or os.environ.get("CUTEMICA_PLASMA_WAYLAND_SESSION") != "1",
@@ -73,6 +74,17 @@ def test_plasma_wayland_provider_and_demo(
     shell: subprocess.Popen[bytes] | None = None
     try:
         _wait_for_socket(compositor, runtime / socket_name)
+        update_dbus_activation_environment(
+            environment,
+            (
+                "KDE_FULL_SESSION",
+                "QT_QPA_PLATFORM",
+                "WAYLAND_DISPLAY",
+                "XDG_CURRENT_DESKTOP",
+                "XDG_RUNTIME_DIR",
+                "XDG_SESSION_TYPE",
+            ),
+        )
         shell = subprocess.Popen(
             ("plasmashell", "--no-respawn"),
             env=environment,

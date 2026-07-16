@@ -181,7 +181,8 @@ jobs:
           python -m pytest -q tests/integration/test_plasma_wayland_session.py
       - name: Cinnamon Wayland session
         run: >-
-          dbus-run-session -- env CUTEMICA_CINNAMON_WAYLAND_SESSION=1
+          xvfb-run -a dbus-run-session -- env
+          CUTEMICA_CINNAMON_WAYLAND_SESSION=1
           python -m pytest -q tests/integration/test_cinnamon_wayland_session.py
 
   macos-cocoa:
