@@ -57,6 +57,7 @@ def benchmark_motion_frames(frame_count: int = 600) -> MotionBenchmarkResult:
             (32, 32, 32),
             slices,
             materials,
+            paint_bounds=target.rect(),
         )
         painter.end()
         elapsed_ms = (perf_counter() - started) * 1_000

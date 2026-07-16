@@ -15,9 +15,12 @@ def paint_material_slices(
     fallback_color: tuple[int, int, int],
     slices: tuple[MaterialSlice, ...],
     materials: dict[str, QPixmap],
+    *,
+    paint_bounds: QRect | None = None,
 ) -> None:
     """Paint an opaque fallback and smoothly sampled available materials."""
 
+    bounds = paint_bounds or dirty_rect
     dirty_area = dirty_rect.width() * dirty_rect.height()
     if _covered_area(dirty_rect, slices) + 1e-6 < dirty_area:
         painter.fillRect(dirty_rect, QColor(*fallback_color))
@@ -25,11 +28,61 @@ def paint_material_slices(
         return
     painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
     for material_slice in slices:
-        painter.drawPixmap(
-            _to_qrectf(material_slice.target),
+        target, source = _sampling_rectangles(
+            material_slice,
             materials[material_slice.screen_key],
-            _to_qrectf(material_slice.source),
+            bounds,
         )
+        painter.drawPixmap(
+            target,
+            materials[material_slice.screen_key],
+            source,
+        )
+
+
+def _sampling_rectangles(
+    material_slice: MaterialSlice,
+    material: QPixmap,
+    bounds: QRect,
+) -> tuple[QRectF, QRectF]:
+    """Expose one source pixel beyond window edges for stable bilinear sampling."""
+
+    target = material_slice.target
+    source = material_slice.source
+    x_scale = source.width / target.width
+    y_scale = source.height / target.height
+    left = _edge_margin(target.x, bounds.x(), source.x)
+    top = _edge_margin(target.y, bounds.y(), source.y)
+    right = _edge_margin(
+        target.right,
+        bounds.x() + bounds.width(),
+        material.width() - source.right,
+    )
+    bottom = _edge_margin(
+        target.bottom,
+        bounds.y() + bounds.height(),
+        material.height() - source.bottom,
+    )
+    return (
+        QRectF(
+            target.x - left / x_scale,
+            target.y - top / y_scale,
+            target.width + (left + right) / x_scale,
+            target.height + (top + bottom) / y_scale,
+        ),
+        QRectF(
+            source.x - left,
+            source.y - top,
+            source.width + left + right,
+            source.height + top + bottom,
+        ),
+    )
+
+
+def _edge_margin(target_edge: float, bound_edge: int, available: float) -> float:
+    if abs(target_edge - bound_edge) > 1e-6:
+        return 0.0
+    return min(1.0, max(0.0, available))
 
 
 def _to_qrectf(rectangle: FloatRect) -> QRectF:

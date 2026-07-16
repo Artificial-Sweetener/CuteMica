@@ -81,6 +81,7 @@ class PortableMicaBackdrop(QWidget):
             self._controller.fallback_color,
             slices,
             self._materials,
+            paint_bounds=self.rect(),
         )
         painter.end()
         self._metrics.record((perf_counter() - started) * 1_000)

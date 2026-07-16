@@ -29,6 +29,7 @@ dev = [
 cutemica = "cutemica.demo.main:main"
 cutemica-benchmark-motion = "cutemica.performance.motion:main"
 cutemica-benchmark-widget-motion = "cutemica.performance.widget_motion:main"
+cutemica-benchmark-native-drag = "cutemica.performance.native_drag:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/cutemica"]

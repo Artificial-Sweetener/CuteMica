@@ -20,3 +20,9 @@ class PaintMetrics:
     @property
     def maximum_ms(self) -> float:
         return max(self._samples, default=0.0)
+
+    @property
+    def latest_ms(self) -> float:
+        """Return the most recently recorded paint duration."""
+
+        return self._samples[-1] if self._samples else 0.0

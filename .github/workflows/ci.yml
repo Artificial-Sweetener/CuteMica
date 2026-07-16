@@ -83,6 +83,10 @@ jobs:
           python -m cutemica.demo.main
           --wallpaper tests/assets/ci-wallpaper.ppm
           --smoke-test
+      - name: Native X11 drag stability and performance
+        run: >-
+          xvfb-run -a env QT_QPA_PLATFORM=xcb
+          cutemica-benchmark-native-drag
 
   windows-native:
     name: Native Windows desktop APIs
@@ -102,6 +106,8 @@ jobs:
           python -m pytest -q
           tests/test_windows_desktop_native.py
           tests/test_native_qt_smoke.py
+      - name: Native Windows drag stability and performance
+        run: cutemica-benchmark-native-drag
 
   linux-desktop-contracts:
     name: Linux desktop provider contracts
@@ -174,16 +180,17 @@ jobs:
       - name: GNOME Wayland session
         run: >-
           dbus-run-session -- env CUTEMICA_GNOME_WAYLAND_SESSION=1
-          python -m pytest -q tests/integration/test_gnome_wayland_session.py
+          python -m pytest -q -s tests/integration/test_gnome_wayland_session.py
       - name: Plasma Wayland session
         run: >-
           dbus-run-session -- env CUTEMICA_PLASMA_WAYLAND_SESSION=1
-          python -m pytest -q tests/integration/test_plasma_wayland_session.py
+          python -m pytest -q -s tests/integration/test_plasma_wayland_session.py
       - name: Cinnamon Wayland session
         run: >-
           xvfb-run -a dbus-run-session -- env
           CUTEMICA_CINNAMON_WAYLAND_SESSION=1
-          python -m pytest -q tests/integration/test_cinnamon_wayland_session.py
+          python -m pytest -q -s
+          tests/integration/test_cinnamon_wayland_session.py
 
   macos-cocoa:
     name: Native macOS Cocoa / ${{ matrix.os }}
@@ -213,6 +220,8 @@ jobs:
           python -m cutemica.demo.main
           --wallpaper tests/assets/ci-wallpaper.ppm
           --smoke-test
+      - name: Native Cocoa drag stability and performance
+        run: cutemica-benchmark-native-drag
 
   package:
     name: Package

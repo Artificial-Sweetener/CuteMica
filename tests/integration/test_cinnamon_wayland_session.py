@@ -16,6 +16,7 @@ from cutemica.geometry import Rect, ScreenBinding
 from cutemica.providers.capabilities import WindowRegistration
 from cutemica.providers.gnome_wallpaper import GnomeWallpaperProvider
 from tests.integration.dbus_environment import update_dbus_activation_environment
+from tests.integration.native_drag_contract import assert_native_drag_contract
 
 pytestmark = pytest.mark.skipif(
     sys.platform != "linux"
@@ -140,6 +141,7 @@ def test_cinnamon_wayland_provider_and_demo(
             timeout=30,
         )
         assert "CUTEMICA_SMOKE_OK" in completed.stdout
+        assert_native_drag_contract(demo_environment, "screen-local")
     finally:
         if cinnamon is not None:
             _stop(cinnamon)

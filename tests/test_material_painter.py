@@ -130,3 +130,49 @@ def test_mixed_dpi_monitor_boundary_contains_no_fallback_pixels(
     assert target.pixelColor(100, 200) == QColor(200, 20, 30)
     assert target.pixelColor(400, 200) == QColor(30, 40, 210)
     assert all(target.pixelColor(x, 200) != fallback for x in range(target.width()))
+
+
+def test_window_edge_sampling_remains_registered_during_motion(
+    qtbot: QtBot,
+) -> None:
+    del qtbot
+    image = QImage(100, 35, QImage.Format.Format_RGB32)
+    image.fill(QColor(40, 100, 140))
+    for y in range(image.height()):
+        image.setPixelColor(65, y, QColor(238, 214, 91))
+    material = QPixmap.fromImage(image)
+    geometry = Rect(0, 0, 400, 140)
+    binding = ScreenBinding("screen", geometry, "screen", geometry, 1.0)
+    materials = {binding.cache_key: material}
+    sizes = {binding.cache_key: material.size().toTuple()}
+
+    previous = _registered_frame(160, binding, sizes, materials)
+    current = _registered_frame(161, binding, sizes, materials)
+
+    for y in range(current.height()):
+        for x in range(current.width() - 1):
+            assert current.pixelColor(x, y) == previous.pixelColor(x + 1, y)
+
+
+def _registered_frame(
+    native_x: int,
+    binding: ScreenBinding,
+    sizes: dict[str, tuple[int, int]],
+    materials: dict[str, QPixmap],
+) -> QImage:
+    target = QImage(100, 70, QImage.Format.Format_RGB32)
+    painter = QPainter(target)
+    paint_material_slices(
+        painter,
+        target.rect(),
+        (0, 0, 0),
+        plan_material_slices(
+            WindowGeometry(FloatRect(native_x, 0, 100, 70), 100, 70),
+            (binding,),
+            sizes,
+        ),
+        materials,
+        paint_bounds=target.rect(),
+    )
+    painter.end()
+    return target

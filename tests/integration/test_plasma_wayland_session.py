@@ -18,6 +18,7 @@ from cutemica.providers.capabilities import WindowRegistration
 from cutemica.providers.plasma_wallpaper import PlasmaWallpaperProvider
 from cutemica.providers.qt_dbus import qt_dbus_executable
 from tests.integration.dbus_environment import update_dbus_activation_environment
+from tests.integration.native_drag_contract import assert_native_drag_contract
 
 pytestmark = pytest.mark.skipif(
     sys.platform != "linux" or os.environ.get("CUTEMICA_PLASMA_WAYLAND_SESSION") != "1",
@@ -125,6 +126,7 @@ def test_plasma_wayland_provider_and_demo(
             timeout=30,
         )
         assert "CUTEMICA_SMOKE_OK" in completed.stdout
+        assert_native_drag_contract(environment, "screen-local")
     finally:
         if shell is not None:
             _stop(shell)

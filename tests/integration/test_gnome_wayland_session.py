@@ -15,6 +15,7 @@ from cutemica.enums import WallpaperPlacement
 from cutemica.geometry import Rect, ScreenBinding
 from cutemica.providers.capabilities import WindowRegistration
 from cutemica.providers.gnome_wallpaper import GnomeWallpaperProvider
+from tests.integration.native_drag_contract import assert_native_drag_contract
 
 pytestmark = pytest.mark.skipif(
     sys.platform != "linux" or os.environ.get("CUTEMICA_GNOME_WAYLAND_SESSION") != "1",
@@ -102,6 +103,7 @@ def test_gnome_wayland_provider_and_demo(
             timeout=30,
         )
         assert "CUTEMICA_SMOKE_OK" in completed.stdout
+        assert_native_drag_contract(environment, "screen-local")
     finally:
         _stop(shell)
         log.close()
