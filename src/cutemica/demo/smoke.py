@@ -66,6 +66,7 @@ class DemoSmokeSequence(QObject):
     def _save_screenshot(self) -> None:
         if self._screenshot_path is None:
             return
+        self._window.prepare_screenshot()
         self._screenshot_path.parent.mkdir(parents=True, exist_ok=True)
         if not self._window.grab().save(str(self._screenshot_path)):
             raise RuntimeError(f"Could not save screenshot: {self._screenshot_path}")

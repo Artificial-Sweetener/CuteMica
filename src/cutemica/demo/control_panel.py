@@ -24,6 +24,7 @@ class ControlPanel(QFrame):
         super().__init__(parent)
         self.setObjectName("micaControlPanel")
         self.setFixedWidth(430)
+        self.setMinimumHeight(350)
 
         title = QLabel("CuteMica")
         title.setObjectName("panelTitle")

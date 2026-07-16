@@ -28,6 +28,7 @@ class DemoWindow(QWidget):
         self._window_geometry = window_geometry
         self._latest_generation_ms = 0.0
         self._screen_signal_connected = False
+        self._screenshot_active = False
         self.setWindowTitle("CuteMica")
         self.resize(980, 680)
         self.setMinimumSize(720, 520)
@@ -53,6 +54,17 @@ class DemoWindow(QWidget):
     def paint_metrics(self) -> tuple[float, float]:
         metrics = self._backdrop.paint_metrics
         return metrics.average_ms, metrics.maximum_ms
+
+    def isActiveWindow(self) -> bool:  # noqa: N802 - Qt override
+        """Treat an explicit screenshot as active in windowless CI sessions."""
+
+        return self._screenshot_active or super().isActiveWindow()
+
+    def prepare_screenshot(self) -> None:
+        """Present the material synchronously before capturing this widget."""
+
+        self._screenshot_active = True
+        self._present_backdrop(immediate=True)
 
     def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 - Qt override
         super().showEvent(event)

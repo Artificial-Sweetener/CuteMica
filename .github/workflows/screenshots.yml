@@ -37,8 +37,8 @@ jobs:
       - name: Capture light and dark materials
         run: |
           mkdir -p captures
-          python -m cutemica.demo.main --wallpaper capture-wallpaper.jpg --theme light --width 900 --height 620 --x 120 --y 90 --screenshot "captures/macos-${{ matrix.label }}-light.png"
-          python -m cutemica.demo.main --wallpaper capture-wallpaper.jpg --theme dark --width 900 --height 620 --x 120 --y 90 --screenshot "captures/macos-${{ matrix.label }}-dark.png"
+          python -m cutemica.demo.main --wallpaper capture-wallpaper.jpg --theme light --width 980 --height 680 --x 120 --y 90 --screenshot "captures/macos-${{ matrix.label }}-light.png"
+          python -m cutemica.demo.main --wallpaper capture-wallpaper.jpg --theme dark --width 980 --height 680 --x 120 --y 90 --screenshot "captures/macos-${{ matrix.label }}-dark.png"
       - uses: actions/upload-artifact@v4
         with:
           name: cutemica-macos-${{ matrix.label }}
@@ -91,8 +91,8 @@ jobs:
       - name: Capture light and dark materials
         run: |
           mkdir -p captures
-          xvfb-run -a -s "-screen 0 1440x960x24" .venv/bin/python -m cutemica.demo.main --wallpaper capture-wallpaper.jpg --theme light --width 900 --height 620 --x 120 --y 90 --screenshot "captures/${{ matrix.label }}-light.png"
-          xvfb-run -a -s "-screen 0 1440x960x24" .venv/bin/python -m cutemica.demo.main --wallpaper capture-wallpaper.jpg --theme dark --width 900 --height 620 --x 120 --y 90 --screenshot "captures/${{ matrix.label }}-dark.png"
+          xvfb-run -a -s "-screen 0 1440x960x24" .venv/bin/python -m cutemica.demo.main --wallpaper capture-wallpaper.jpg --theme light --width 980 --height 680 --x 120 --y 90 --screenshot "captures/${{ matrix.label }}-light.png"
+          xvfb-run -a -s "-screen 0 1440x960x24" .venv/bin/python -m cutemica.demo.main --wallpaper capture-wallpaper.jpg --theme dark --width 980 --height 680 --x 120 --y 90 --screenshot "captures/${{ matrix.label }}-dark.png"
       - uses: actions/upload-artifact@v4
         with:
           name: cutemica-${{ matrix.label }}
