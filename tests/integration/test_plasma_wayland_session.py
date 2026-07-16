@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import json
 import os
-import shutil
 import subprocess
 import sys
 import time
@@ -16,6 +16,7 @@ from cutemica.enums import WallpaperPlacement
 from cutemica.geometry import Rect, ScreenBinding
 from cutemica.providers.capabilities import WindowRegistration
 from cutemica.providers.plasma_wallpaper import PlasmaWallpaperProvider
+from cutemica.providers.qt_dbus import qt_dbus_executable
 from tests.integration.dbus_environment import update_dbus_activation_environment
 
 pytestmark = pytest.mark.skipif(
@@ -80,6 +81,7 @@ def test_plasma_wayland_provider_and_demo(
                 "KDE_FULL_SESSION",
                 "QT_QPA_PLATFORM",
                 "WAYLAND_DISPLAY",
+                "XDG_CONFIG_HOME",
                 "XDG_CURRENT_DESKTOP",
                 "XDG_RUNTIME_DIR",
                 "XDG_SESSION_TYPE",
@@ -144,6 +146,7 @@ def _wait_for_socket(process: subprocess.Popen[bytes], socket: Path) -> None:
 
 def _wait_for_plasma(shell: subprocess.Popen[bytes], log_path: Path) -> None:
     deadline = time.monotonic() + 20
+    reported_screens = "unavailable"
     while time.monotonic() < deadline:
         if shell.poll() is not None:
             raise RuntimeError(
@@ -151,12 +154,24 @@ def _wait_for_plasma(shell: subprocess.Popen[bytes], log_path: Path) -> None:
                 f"{_log_tail(log_path)}"
             )
         try:
-            _evaluate_script("print(desktops().length);")
+            reported_screens = _evaluate_script(
+                "print(JSON.stringify(desktops().map(desktop => desktop.screen)));"
+            )
         except RuntimeError:
             time.sleep(0.2)
             continue
-        return
-    raise RuntimeError("Plasma Shell did not publish its D-Bus API")
+        if any(screen >= 0 for screen in _parse_screen_indexes(reported_screens)):
+            return
+        time.sleep(0.2)
+    raise RuntimeError(
+        "Plasma Shell did not bind a desktop to a screen; "
+        f"reported screens: {reported_screens.strip()}\n{_log_tail(log_path)}"
+    )
+
+
+def _parse_screen_indexes(output: str) -> tuple[int, ...]:
+    parsed = json.loads(output.strip())
+    return tuple(int(screen) for screen in parsed)
 
 
 def _log_tail(path: Path) -> str:
@@ -199,20 +214,10 @@ def _system_theme(environment: dict[str, str]) -> str:
 
 
 def _evaluate_script(script: str) -> str:
-    executable = next(
-        (
-            path
-            for name in ("qdbus6", "qdbus", "qdbus-qt5")
-            if (path := shutil.which(name))
-        ),
-        None,
-    )
-    if executable is None:
-        raise RuntimeError("Plasma session test requires qdbus")
     try:
         completed = subprocess.run(
             (
-                executable,
+                qt_dbus_executable(),
                 "org.kde.plasmashell",
                 "/PlasmaShell",
                 "org.kde.PlasmaShell.evaluateScript",

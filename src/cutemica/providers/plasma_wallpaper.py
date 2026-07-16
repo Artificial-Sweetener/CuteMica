@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import shutil
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -15,6 +14,7 @@ from cutemica.enums import WallpaperPlacement
 from cutemica.geometry import ScreenBinding
 from cutemica.providers.capabilities import ProviderCapabilities
 from cutemica.providers.linux_session import linux_window_registration
+from cutemica.providers.qt_dbus import qt_dbus_executable
 from cutemica.wallpaper import ScreenWallpaper, WallpaperSnapshot, WallpaperSource
 
 CommandRunner = Callable[[tuple[str, ...]], str]
@@ -96,18 +96,8 @@ class PlasmaWallpaperProvider:
 
 
 def _run_plasma_script(arguments: tuple[str, ...]) -> str:
-    executable = next(
-        (
-            path
-            for name in ("qdbus6", "qdbus", "qdbus-qt5")
-            if (path := shutil.which(name))
-        ),
-        None,
-    )
-    if executable is None:
-        raise RuntimeError("Plasma wallpaper discovery requires qdbus")
     command = (
-        executable,
+        qt_dbus_executable(),
         "org.kde.plasmashell",
         "/PlasmaShell",
         "org.kde.PlasmaShell.evaluateScript",
