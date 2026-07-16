@@ -43,18 +43,20 @@ def test_gnome_wayland_provider_and_demo(
     )
     log_path = tmp_path / "gnome-shell.log"
     log = log_path.open("wb", buffering=0)
+    shell_command = [
+        "gnome-shell",
+        "--wayland",
+        "--headless",
+        "--no-x11",
+        "--wayland-display",
+        socket_name,
+        "--virtual-monitor",
+        "1920x1080",
+    ]
+    if _gnome_shell_supports("--sm-disable"):
+        shell_command.append("--sm-disable")
     shell = subprocess.Popen(
-        (
-            "gnome-shell",
-            "--wayland",
-            "--headless",
-            "--no-x11",
-            "--wayland-display",
-            socket_name,
-            "--virtual-monitor",
-            "1920x1080",
-            "--sm-disable",
-        ),
+        tuple(shell_command),
         env=environment,
         stdout=log,
         stderr=subprocess.STDOUT,
@@ -131,6 +133,17 @@ def _set_gsettings(schema: str, key: str, value: str) -> None:
         text=True,
         timeout=10,
     )
+
+
+def _gnome_shell_supports(option: str) -> bool:
+    completed = subprocess.run(
+        ("gnome-shell", "--help"),
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    return option in f"{completed.stdout}\n{completed.stderr}"
 
 
 def _system_theme(environment: dict[str, str]) -> str:
