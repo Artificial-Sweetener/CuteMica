@@ -132,7 +132,9 @@ Windows, X11, and macOS, stable screen-local output on Wayland, unchanged
 fallback during movement. It never captures the desktop or other windows. The
 default hosted-runner budgets are 10 ms for the complete move cycle, 2 ms for
 geometry, and 5 ms each for presentation and paint; exact pixel registration is
-still required.
+still required. Native and reference-workstation probes use elapsed wall time.
+The shared Intel macOS runner uses process CPU time so host descheduling cannot
+masquerade as CuteMica work; the evidence payload always identifies its clock.
 
 ## Reference contract
 

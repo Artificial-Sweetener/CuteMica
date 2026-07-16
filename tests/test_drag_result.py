@@ -18,6 +18,7 @@ def test_native_drag_budgets_report_each_invariant() -> None:
     result = NativeDragResult(
         platform_name="test",
         registration="global",
+        timing_clock="wall",
         move_events=1,
         forced_presentations=0,
         generation_count=1,
@@ -42,6 +43,7 @@ def _result() -> NativeDragResult:
     return NativeDragResult(
         platform_name="test",
         registration="global",
+        timing_clock="wall",
         move_events=100,
         forced_presentations=0,
         generation_count=0,

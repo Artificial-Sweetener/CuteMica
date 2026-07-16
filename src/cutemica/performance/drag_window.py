@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
@@ -37,6 +38,7 @@ class NativeDragProbeWindow(QWidget):
         geometry_provider: WindowGeometryProvider,
         materials: dict[str, QPixmap],
         size: tuple[int, int],
+        clock: Callable[[], float] = perf_counter,
     ) -> None:
         flags = (
             Qt.WindowType.Tool
@@ -45,6 +47,7 @@ class NativeDragProbeWindow(QWidget):
         )
         super().__init__(None, flags)
         self._application = application
+        self._clock = clock
         self._geometry_provider = geometry_provider
         self._samples: list[DragPresentationSample] = []
         self._move_cycles_ms: list[float] = []
@@ -63,7 +66,7 @@ class NativeDragProbeWindow(QWidget):
         )
         controller.generation_started.connect(self._record_generation)
         self._controller = controller
-        self._backdrop = PortableMicaBackdrop(controller, self)
+        self._backdrop = PortableMicaBackdrop(controller, self, clock=clock)
         self.resize(*size)
         self._backdrop.setGeometry(self.rect())
         for screen_key, material in materials.items():
@@ -139,14 +142,14 @@ class NativeDragProbeWindow(QWidget):
         """Move through the native event loop and guarantee one presentation."""
 
         previous_count = len(self._samples)
-        started = perf_counter()
+        started = self._clock()
         self.move(position)
         self._application.processEvents()
         if len(self._samples) == previous_count:
             self._forced_presentations += 1
             self._present()
             self._application.processEvents()
-        self._move_cycles_ms.append((perf_counter() - started) * 1_000)
+        self._move_cycles_ms.append((self._clock() - started) * 1_000)
         if len(self._samples) == previous_count:
             raise RuntimeError("Native drag did not produce a presentation")
         return self._samples[-1]
@@ -162,12 +165,12 @@ class NativeDragProbeWindow(QWidget):
         self._application.processEvents()
 
     def _present(self) -> None:
-        geometry_started = perf_counter()
+        geometry_started = self._clock()
         geometry = self._geometry_provider.snapshot(self)
-        geometry_ms = (perf_counter() - geometry_started) * 1_000
-        presentation_started = perf_counter()
+        geometry_ms = (self._clock() - geometry_started) * 1_000
+        presentation_started = self._clock()
         self._backdrop.present(geometry, immediate=True)
-        presentation_ms = (perf_counter() - presentation_started) * 1_000
+        presentation_ms = (self._clock() - presentation_started) * 1_000
         if self._recording:
             self._samples.append(
                 DragPresentationSample(

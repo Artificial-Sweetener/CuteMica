@@ -198,7 +198,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15, macos-15-intel]
+        include:
+          - os: macos-15
+            timing-clock: wall
+          - os: macos-15-intel
+            timing-clock: process
     env:
       CUTEMICA_MACOS_WALLPAPER_MUTATION: "1"
       QT_QPA_PLATFORM: cocoa
@@ -221,7 +225,9 @@ jobs:
           --wallpaper tests/assets/ci-wallpaper.ppm
           --smoke-test
       - name: Native Cocoa drag stability and performance
-        run: cutemica-benchmark-native-drag
+        run: >-
+          cutemica-benchmark-native-drag
+          --timing-clock ${{ matrix.timing-clock }}
 
   package:
     name: Package

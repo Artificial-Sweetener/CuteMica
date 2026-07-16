@@ -27,6 +27,7 @@ from cutemica.performance.drag_result import (
 )
 from cutemica.performance.drag_window import NativeDragProbeWindow
 from cutemica.performance.result import summarize_motion_samples
+from cutemica.performance.timing_clock import BenchmarkClock, timing_function
 from cutemica.providers.qt_screens import infer_qt_screen_bindings
 from cutemica.providers.window_geometry import create_window_geometry_provider
 
@@ -37,6 +38,7 @@ _WINDOW_SIZE = (240, 140)
 def benchmark_native_drag(
     frame_count: int = 600,
     stability_frame_count: int = 96,
+    timing_clock: BenchmarkClock = BenchmarkClock.WALL,
 ) -> NativeDragResult:
     """Run native move events, immediate paints, and pixel continuity checks."""
 
@@ -57,6 +59,7 @@ def benchmark_native_drag(
         provider,
         create_drag_materials(bindings),
         _WINDOW_SIZE,
+        timing_function(timing_clock),
     )
     stability_path = stability_positions(primary, *_WINDOW_SIZE, stability_frame_count)
     window.start(stability_path[0])
@@ -77,6 +80,7 @@ def benchmark_native_drag(
         return NativeDragResult(
             platform_name=QGuiApplication.platformName(),
             registration=provider.registration.value,
+            timing_clock=timing_clock.value,
             move_events=window.move_events,
             forced_presentations=window.forced_presentations,
             generation_count=window.generation_count,
@@ -128,6 +132,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--frames", type=int, default=600)
     parser.add_argument("--stability-frames", type=int, default=96)
+    parser.add_argument(
+        "--timing-clock",
+        choices=tuple(clock.value for clock in BenchmarkClock),
+        default=BenchmarkClock.WALL.value,
+    )
     parser.add_argument("--move-p95-budget-ms", type=float, default=10.0)
     parser.add_argument("--geometry-p95-budget-ms", type=float, default=2.0)
     parser.add_argument("--presentation-p95-budget-ms", type=float, default=5.0)
@@ -135,7 +144,11 @@ def main() -> int:
     parser.add_argument("--mismatch-ratio", type=float, default=0.0)
     parser.add_argument("--maximum-channel-delta", type=int, default=2)
     arguments = parser.parse_args()
-    result = benchmark_native_drag(arguments.frames, arguments.stability_frames)
+    result = benchmark_native_drag(
+        arguments.frames,
+        arguments.stability_frames,
+        BenchmarkClock(arguments.timing_clock),
+    )
     budgets = NativeDragBudgets(
         move_cycle_p95_ms=arguments.move_p95_budget_ms,
         geometry_p95_ms=arguments.geometry_p95_budget_ms,

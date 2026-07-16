@@ -28,6 +28,7 @@ class DragStabilityResult:
 class NativeDragResult:
     platform_name: str
     registration: str
+    timing_clock: str
     move_events: int
     forced_presentations: int
     generation_count: int

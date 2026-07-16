@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from time import perf_counter
 
 from PySide6.QtCore import Qt, Slot
@@ -16,9 +17,16 @@ from cutemica.widgets.material_painter import paint_material_slices
 class PortableMicaBackdrop(QWidget):
     """Opaque, low-cost presenter for precomputed per-screen material textures."""
 
-    def __init__(self, controller: MaterialController, parent: QWidget) -> None:
+    def __init__(
+        self,
+        controller: MaterialController,
+        parent: QWidget,
+        *,
+        clock: Callable[[], float] = perf_counter,
+    ) -> None:
         super().__init__(parent)
         self._controller = controller
+        self._clock = clock
         self._materials: dict[str, QPixmap] = {}
         self._material_sizes: dict[str, tuple[int, int]] = {}
         self._window_geometry: WindowGeometry | None = None
@@ -70,7 +78,7 @@ class PortableMicaBackdrop(QWidget):
         self.set_material(screen_key, material)
 
     def paintEvent(self, event: QPaintEvent) -> None:  # noqa: N802 - Qt override
-        started = perf_counter()
+        started = self._clock()
         painter = QPainter(self)
         slices: tuple[MaterialSlice, ...] = ()
         representative = next(iter(self._materials.values()), None)
@@ -94,7 +102,7 @@ class PortableMicaBackdrop(QWidget):
             paint_bounds=self.rect(),
         )
         painter.end()
-        self._metrics.record((perf_counter() - started) * 1_000)
+        self._metrics.record((self._clock() - started) * 1_000)
 
 
 def material_presentation_enabled(
