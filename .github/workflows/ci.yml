@@ -186,9 +186,14 @@ jobs:
           python -m pytest -q tests/integration/test_cinnamon_wayland_session.py
 
   macos-cocoa:
-    name: Native macOS Cocoa
-    runs-on: macos-15
+    name: Native macOS Cocoa / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel]
     env:
+      CUTEMICA_MACOS_WALLPAPER_MUTATION: "1"
       QT_QPA_PLATFORM: cocoa
     steps:
       - uses: actions/checkout@v6
@@ -201,6 +206,7 @@ jobs:
       - run: >-
           python -m pytest -q
           tests/test_macos_appkit_native.py
+          tests/integration/test_macos_wallpaper_change.py
           tests/test_native_qt_smoke.py
       - name: Native demo smoke
         run: >-
