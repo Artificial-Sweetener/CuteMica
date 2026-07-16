@@ -32,6 +32,16 @@ class PortableMicaBackdrop(QWidget):
     def paint_metrics(self) -> PaintMetrics:
         return self._metrics
 
+    @property
+    def material_cache_signature(self) -> tuple[tuple[str, int], ...]:
+        """Identify published textures without copying their pixel storage."""
+
+        return tuple(
+            sorted(
+                (key, material.cacheKey()) for key, material in self._materials.items()
+            )
+        )
+
     def set_material(self, screen_key: str, material: QPixmap) -> None:
         """Publish a prepared screen material to the low-cost presenter."""
 

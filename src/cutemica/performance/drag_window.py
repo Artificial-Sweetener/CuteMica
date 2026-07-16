@@ -68,6 +68,7 @@ class NativeDragProbeWindow(QWidget):
         self._backdrop.setGeometry(self.rect())
         for screen_key, material in materials.items():
             self._backdrop.set_material(screen_key, material)
+        self._material_cache_signature = self._backdrop.material_cache_signature
         self.setWindowOpacity(0.0)
 
     @property
@@ -97,6 +98,10 @@ class NativeDragProbeWindow(QWidget):
     @property
     def fallback_color(self) -> tuple[int, int, int]:
         return self._controller.fallback_color
+
+    @property
+    def material_cache_stable(self) -> bool:
+        return self._backdrop.material_cache_signature == self._material_cache_signature
 
     def isActiveWindow(self) -> bool:  # noqa: N802 - Qt test-window override
         """Keep material painting active without taking desktop focus."""

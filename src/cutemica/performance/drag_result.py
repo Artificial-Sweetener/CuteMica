@@ -31,6 +31,7 @@ class NativeDragResult:
     move_events: int
     forced_presentations: int
     generation_count: int
+    material_cache_stable: bool
     move_cycle: MotionBenchmarkResult
     geometry: MotionBenchmarkResult
     presentation: MotionBenchmarkResult
@@ -69,6 +70,8 @@ class NativeDragBudgets:
             failures.append(
                 f"movement triggered {result.generation_count} material generations"
             )
+        if not result.material_cache_stable:
+            failures.append("movement replaced a cached material texture")
         if result.stability.fallback_pixels:
             failures.append(
                 f"rendered {result.stability.fallback_pixels} fallback pixels"

@@ -80,6 +80,7 @@ def benchmark_native_drag(
             move_events=window.move_events,
             forced_presentations=window.forced_presentations,
             generation_count=window.generation_count,
+            material_cache_stable=window.material_cache_stable,
             move_cycle=summarize_motion_samples(list(window.move_cycles_ms)),
             geometry=summarize_motion_samples(
                 [sample.geometry_ms for sample in samples]

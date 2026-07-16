@@ -21,6 +21,7 @@ def test_native_drag_budgets_report_each_invariant() -> None:
         move_events=1,
         forced_presentations=0,
         generation_count=1,
+        material_cache_stable=False,
         move_cycle=_timing(2.0),
         geometry=_timing(2.0),
         presentation=_timing(2.0),
@@ -30,9 +31,10 @@ def test_native_drag_budgets_report_each_invariant() -> None:
 
     violations = NativeDragBudgets(1.0, 1.0, 1.0, 1.0).violations(result)
 
-    assert len(violations) == 8
+    assert len(violations) == 9
     assert any("material generations" in item for item in violations)
     assert any("fallback pixels" in item for item in violations)
+    assert any("cached material" in item for item in violations)
 
 
 def _result() -> NativeDragResult:
@@ -43,6 +45,7 @@ def _result() -> NativeDragResult:
         move_events=100,
         forced_presentations=0,
         generation_count=0,
+        material_cache_stable=True,
         move_cycle=timing,
         geometry=timing,
         presentation=timing,
