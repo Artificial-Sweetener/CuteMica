@@ -1,11 +1,22 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QEvent, QTimer, Slot
-from PySide6.QtGui import QMoveEvent, QPixmap, QResizeEvent, QScreen, QShowEvent
+from time import perf_counter
+
+from PySide6.QtCore import QEvent, QTimer, QUrl, Slot
+from PySide6.QtGui import (
+    QDesktopServices,
+    QMoveEvent,
+    QPixmap,
+    QResizeEvent,
+    QScreen,
+    QShowEvent,
+)
 from PySide6.QtWidgets import QWidget
 
 from cutemica.controller import MaterialController
 from cutemica.demo.control_panel import ControlPanel
+from cutemica.diagnostics.exporter import TesterReportExporter
+from cutemica.diagnostics.session import ValidationSession
 from cutemica.enums import ResolvedTheme
 from cutemica.providers.window_geometry import WindowGeometryProvider
 from cutemica.theme import ThemeController
@@ -22,16 +33,23 @@ class DemoWindow(QWidget):
         theme: ThemeController,
         wallpaper: WallpaperSnapshot,
         window_geometry: WindowGeometryProvider,
+        session: ValidationSession,
     ) -> None:
         super().__init__()
         self._controller = controller
         self._window_geometry = window_geometry
+        self._session = session
+        self._wallpaper = wallpaper
+        self._report_exporter = TesterReportExporter(
+            controller.bindings,
+            window_geometry.registration.value,
+        )
         self._latest_generation_ms = 0.0
         self._screen_signal_connected = False
         self._screenshot_active = False
         self.setWindowTitle("CuteMica")
-        self.resize(980, 680)
-        self.setMinimumSize(720, 520)
+        self.resize(1040, 760)
+        self.setMinimumSize(760, 640)
 
         self._backdrop = PortableMicaBackdrop(controller, self)
         self._panel = ControlPanel(
@@ -41,12 +59,19 @@ class DemoWindow(QWidget):
         self._panel.select_theme_mode(theme.mode)
         self._panel.theme_mode_changed.connect(theme.set_mode)
         self._panel.refresh_requested.connect(controller.refresh)
+        self._panel.reset_session_requested.connect(self._reset_session)
+        self._panel.export_report_requested.connect(self._export_report)
         controller.generation_started.connect(self._on_generation_started)
         controller.material_ready.connect(self._on_material_ready)
         controller.generation_finished.connect(self._on_generation_finished)
-        controller.error.connect(self._panel.set_generation_status)
+        controller.error.connect(self._on_controller_error)
         controller.wallpaper_changed.connect(self._on_wallpaper_changed)
         theme.theme_changed.connect(self._on_theme_changed)
+        theme.monitoring_failed.connect(self._on_theme_monitor_failed)
+        self._status_timer = QTimer(self)
+        self._status_timer.setInterval(250)
+        self._status_timer.timeout.connect(self._update_test_status)
+        self._status_timer.start()
         self._layout_children()
         self._on_theme_changed(theme.resolved)
 
@@ -81,7 +106,20 @@ class DemoWindow(QWidget):
 
     def moveEvent(self, event: QMoveEvent) -> None:  # noqa: N802 - Qt override
         super().moveEvent(event)
-        self._present_backdrop(immediate=True)
+        started = perf_counter()
+        geometry_started = perf_counter()
+        geometry = self._window_geometry.snapshot(self)
+        geometry_ms = (perf_counter() - geometry_started) * 1_000
+        presentation_started = perf_counter()
+        self._backdrop.present(geometry, immediate=True)
+        presentation_ms = (perf_counter() - presentation_started) * 1_000
+        self._session.record_motion(
+            geometry,
+            move_cycle_ms=(perf_counter() - started) * 1_000,
+            geometry_ms=geometry_ms,
+            presentation_ms=presentation_ms,
+            paint_ms=self._backdrop.paint_metrics.latest_ms,
+        )
 
     def changeEvent(self, event: QEvent) -> None:  # noqa: N802 - Qt override
         super().changeEvent(event)
@@ -119,10 +157,13 @@ class DemoWindow(QWidget):
     def _on_theme_changed(self, theme_object: object) -> None:
         if isinstance(theme_object, ResolvedTheme):
             self._panel.set_theme_style(dark=theme_object is ResolvedTheme.DARK)
+            self._session.record_theme(theme_object)
 
     @Slot(object)
     def _on_wallpaper_changed(self, value: object) -> None:
         if isinstance(value, WallpaperSnapshot):
+            self._wallpaper = value
+            self._session.record_wallpaper_change(value.provider_name)
             self._panel.set_environment_description(
                 _environment_description(
                     value,
@@ -148,6 +189,37 @@ class DemoWindow(QWidget):
             f"Material set {generation} ready in {self._latest_generation_ms:.1f} ms · "
             f"paint avg {average_ms:.3f} ms / max {maximum_ms:.3f} ms"
         )
+        self._session.record_generation(generation, self._latest_generation_ms)
+
+    @Slot(str)
+    def _on_theme_monitor_failed(self, message: str) -> None:
+        self._session.record_error("theme-monitor", message)
+
+    @Slot(str)
+    def _on_controller_error(self, message: str) -> None:
+        self._session.record_error("material-or-wallpaper", message)
+        self._panel.set_generation_status(message)
+
+    @Slot()
+    def _reset_session(self) -> None:
+        self._session.reset()
+        self._panel.set_export_status("")
+        self._update_test_status()
+
+    @Slot()
+    def _update_test_status(self) -> None:
+        self._panel.set_test_status(self._session.status_text)
+
+    @Slot()
+    def _export_report(self) -> None:
+        try:
+            output = self._report_exporter.export(self._session, self._wallpaper)
+        except OSError as error:
+            self._session.record_error("report-export", str(error))
+            self._panel.set_export_status(f"Could not save report: {error}")
+            return
+        self._panel.set_export_status(f"Saved {output.name}")
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(output.parent)))
 
 
 def _environment_description(wallpaper: WallpaperSnapshot, registration: str) -> str:

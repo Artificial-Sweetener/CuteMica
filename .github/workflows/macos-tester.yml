@@ -1,0 +1,99 @@
+name: macOS tester app
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apple-silicon:
+    name: Apple Silicon tester bundle
+    runs-on: macos-15
+    env:
+      MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+      MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+      MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Validate signing configuration
+        run: |
+          configured=0
+          missing=0
+          for value in "$MACOS_CERTIFICATE" "$MACOS_CERTIFICATE_PASSWORD" "$MACOS_SIGNING_IDENTITY" "$APPLE_ID" "$APPLE_APP_PASSWORD" "$APPLE_TEAM_ID"; do
+            if [[ -n "$value" ]]; then configured=$((configured + 1)); else missing=$((missing + 1)); fi
+          done
+          if [[ $configured -ne 0 && $missing -ne 0 ]]; then
+            echo "Configure all six macOS signing/notarization secrets or leave all six empty."
+            exit 1
+          fi
+      - run: python -m pip install ".[tester-build]"
+      - name: Import Developer ID certificate
+        if: env.MACOS_SIGNING_IDENTITY != ''
+        run: |
+          echo "$MACOS_CERTIFICATE" | base64 -D > certificate.p12
+          security create-keychain -p cutemica-ci build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p cutemica-ci build.keychain
+          security import certificate.p12 -k build.keychain -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k cutemica-ci build.keychain
+          rm certificate.p12
+      - name: Build application bundle
+        run: |
+          args=(
+            --noconfirm
+            --clean
+            --windowed
+            --name CuteMica
+            --target-architecture arm64
+            --osx-bundle-identifier ai.artificialsweetener.CuteMica
+            --hidden-import AppKit
+            --hidden-import Foundation
+            --collect-submodules PyObjCTools
+          )
+          if [[ -n "$MACOS_SIGNING_IDENTITY" ]]; then
+            args+=(--codesign-identity "$MACOS_SIGNING_IDENTITY")
+          fi
+          python -m PyInstaller "${args[@]}" src/cutemica/demo/main.py
+          if [[ -z "$MACOS_SIGNING_IDENTITY" ]]; then
+            codesign --force --deep --sign - dist/CuteMica.app
+          fi
+          codesign --verify --deep --strict --verbose=2 dist/CuteMica.app
+      - name: Exercise packaged app
+        env:
+          QT_QPA_PLATFORM: cocoa
+        run: >-
+          dist/CuteMica.app/Contents/MacOS/CuteMica
+          --wallpaper tests/assets/ci-wallpaper.ppm
+          --smoke-test
+      - name: Create disk image
+        run: |
+          mkdir -p dmg-root
+          ditto dist/CuteMica.app dmg-root/CuteMica.app
+          ln -s /Applications dmg-root/Applications
+          cp packaging/MAC_TESTER_INSTRUCTIONS.txt "dmg-root/Read Me.txt"
+          hdiutil create -volname "CuteMica Tester" -srcfolder dmg-root -ov -format UDZO dist/CuteMica-Apple-Silicon.dmg
+          if [[ -n "$MACOS_SIGNING_IDENTITY" ]]; then
+            codesign --force --sign "$MACOS_SIGNING_IDENTITY" dist/CuteMica-Apple-Silicon.dmg
+            xcrun notarytool submit dist/CuteMica-Apple-Silicon.dmg --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+            xcrun stapler staple dist/CuteMica-Apple-Silicon.dmg
+            xcrun stapler validate dist/CuteMica-Apple-Silicon.dmg
+          fi
+          shasum -a 256 dist/CuteMica-Apple-Silicon.dmg > dist/CuteMica-Apple-Silicon.dmg.sha256
+          cp packaging/MAC_TESTER_INSTRUCTIONS.txt dist/Read-me-first.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CuteMica-Apple-Silicon-Tester
+          path: |
+            dist/CuteMica-Apple-Silicon.dmg
+            dist/CuteMica-Apple-Silicon.dmg.sha256
+            dist/Read-me-first.txt
+          if-no-files-found: error

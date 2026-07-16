@@ -56,6 +56,43 @@ the window only selects and paints a desktop-registered crop from the cached
 material. Regeneration occurs when the wallpaper, theme, display topology, or
 recipe changes.
 
+## Apple Silicon tester app
+
+The `macOS tester app` GitHub Actions workflow builds a self-contained Apple
+Silicon `CuteMica.app` and places it in a drag-to-Applications DMG. The tester
+does not install Python, create an environment, use Terminal, choose a
+wallpaper, or change a CuteMica setting before launch. The app reads the current
+wallpaper and placement for every AppKit display and starts in Follow system
+appearance mode.
+
+The app presents four checks: drag across displays, switch macOS appearance,
+change the wallpaper, and save a test report. The report is written to Downloads
+as a ZIP and Finder opens that folder. It contains bounded move, geometry,
+presentation, and paint timing distributions; display scale and topology;
+monitor transitions; material generations; appearance and wallpaper changes;
+and captured runtime errors. It contains no wallpaper pixels, screenshot,
+wallpaper filename, or wallpaper path. Unexpected callback failures are retained
+for the next report export, and a startup failure writes a diagnostic ZIP to
+Downloads before showing an error dialog.
+
+An ad-hoc signed build can be opened once through macOS's Control-click > Open
+flow. Normal double-click launch requires a Developer ID Application certificate
+and Apple notarization. The workflow automatically produces that distribution
+when all of these repository secrets are configured:
+
+- `MACOS_CERTIFICATE`: base64-encoded Developer ID Application `.p12`.
+- `MACOS_CERTIFICATE_PASSWORD`: password for that `.p12`.
+- `MACOS_SIGNING_IDENTITY`: full Developer ID Application identity.
+- `APPLE_ID`: Apple account used by `notarytool`.
+- `APPLE_APP_PASSWORD`: app-specific password for that account.
+- `APPLE_TEAM_ID`: Apple Developer team identifier.
+
+The workflow rejects partially configured signing credentials. With all six
+present, it signs the app and DMG, submits the DMG to Apple's notary service,
+staples the ticket, validates it, exercises the packaged application through the
+real Cocoa plugin, and uploads the DMG with its SHA-256 checksum and tester
+instructions.
+
 System theme following uses the native Qt signal on Windows and macOS. Linux
 reads the active desktop setting for GNOME, Cinnamon, MATE, XFCE, KDE Plasma,
 and LXQt, then monitors it asynchronously. Settings queries never run during

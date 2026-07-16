@@ -15,4 +15,4 @@ def test_dark_panel_gives_every_label_explicit_light_text(qtbot: object) -> None
     }
 
     assert colors == {QColor("#f3f3f3").name()}
-    assert panel.minimumHeight() == 350
+    assert panel.minimumHeight() == 500

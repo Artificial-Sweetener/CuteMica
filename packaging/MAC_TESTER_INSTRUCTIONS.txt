@@ -1,0 +1,16 @@
+CuteMica Apple Silicon test
+===========================
+
+1. Open CuteMica-Apple-Silicon.dmg.
+2. Drag CuteMica into the Applications folder shown beside it.
+3. Open CuteMica from Applications.
+4. Follow the four steps shown inside the app.
+5. Click "Save test report to Downloads" and send back the ZIP file.
+
+CuteMica automatically uses the current wallpaper on each Mac display. The test
+report never includes the wallpaper image, a screenshot, its filename, or its
+path.
+
+If macOS says it cannot verify the developer, Control-click CuteMica in the
+Applications folder, choose Open, then choose Open once more. A Developer ID
+signed and Apple-notarized build opens normally without this step.

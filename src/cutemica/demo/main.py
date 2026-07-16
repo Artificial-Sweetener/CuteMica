@@ -4,11 +4,14 @@ import argparse
 import sys
 from pathlib import Path
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QMessageBox
 
 from cutemica.controller import MaterialController
 from cutemica.demo.smoke import DemoSmokeSequence
 from cutemica.demo.window import DemoWindow
+from cutemica.diagnostics.runtime_exceptions import install_exception_recorder
+from cutemica.diagnostics.session import ValidationSession
+from cutemica.diagnostics.startup_failure import write_startup_failure
 from cutemica.enums import ThemeMode
 from cutemica.providers.explicit_wallpaper import ExplicitWallpaperProvider
 from cutemica.providers.qt_screens import infer_qt_screen_bindings
@@ -22,8 +25,23 @@ def main() -> int:
     arguments = _parse_arguments()
     application = QApplication(sys.argv)
     application.setApplicationName("CuteMica")
+    application.setApplicationDisplayName("CuteMica Tester")
     application.setOrganizationName("CuteMica")
 
+    try:
+        return _run(application, arguments)
+    except Exception as error:  # noqa: BLE001 - desktop application boundary
+        report_path = write_startup_failure(error)
+        QMessageBox.critical(
+            None,
+            "CuteMica could not start",
+            "CuteMica could not read the desktop configuration.\n\n"
+            f"A diagnostic report was saved to Downloads:\n{report_path.name}",
+        )
+        return 1
+
+
+def _run(application: QApplication, arguments: argparse.Namespace) -> int:
     bindings = infer_qt_screen_bindings(application.screens())
     wallpaper_provider = (
         ExplicitWallpaperProvider(arguments.wallpaper)
@@ -33,6 +51,8 @@ def main() -> int:
     wallpaper = wallpaper_provider.discover(bindings)
     theme = ThemeController(ThemeMode(arguments.theme))
     controller = MaterialController(wallpaper, bindings, theme)
+    session = ValidationSession(bindings, theme.resolved, wallpaper.provider_name)
+    install_exception_recorder(session)
     monitor = WallpaperMonitor(
         wallpaper_provider,
         bindings,
@@ -46,6 +66,7 @@ def main() -> int:
         theme,
         wallpaper,
         create_window_geometry_provider(bindings),
+        session,
     )
     if arguments.width is not None and arguments.height is not None:
         window.resize(arguments.width, arguments.height)
@@ -73,7 +94,7 @@ def main() -> int:
     return exit_code
 
 
-def _parse_arguments() -> argparse.Namespace:
+def _parse_arguments(arguments: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Launch the CuteMica demo")
     parser.add_argument(
         "--wallpaper",
@@ -100,16 +121,20 @@ def _parse_arguments() -> argparse.Namespace:
         type=Path,
         help="Save a Qt-rendered demo screenshot, then exit",
     )
-    arguments = parser.parse_args()
-    if (arguments.width is None) != (arguments.height is None):
+    command_line = sys.argv[1:] if arguments is None else arguments
+    finder_safe_arguments = [
+        argument for argument in command_line if not argument.startswith("-psn_")
+    ]
+    parsed = parser.parse_args(finder_safe_arguments)
+    if (parsed.width is None) != (parsed.height is None):
         parser.error("--width and --height must be provided together")
-    if (arguments.x is None) != (arguments.y is None):
+    if (parsed.x is None) != (parsed.y is None):
         parser.error("--x and --y must be provided together")
-    if arguments.width is not None and arguments.width <= 0:
+    if parsed.width is not None and parsed.width <= 0:
         parser.error("--width must be positive")
-    if arguments.height is not None and arguments.height <= 0:
+    if parsed.height is not None and parsed.height <= 0:
         parser.error("--height must be positive")
-    return arguments
+    return parsed
 
 
 if __name__ == "__main__":
