@@ -34,19 +34,17 @@ jobs:
           python -m PyInstaller "${args[@]}" src/cutemica/demo/main.py
           codesign --force --deep --sign - dist/CuteMica.app
           codesign --verify --deep --strict --verbose=2 dist/CuteMica.app
+      - name: Activate installed Apple native wallpaper
+        run: python -m tests.integration.macos_native_mode
       - name: Exercise packaged app
         env:
           QT_QPA_PLATFORM: cocoa
-        run: >-
-          dist/CuteMica.app/Contents/MacOS/CuteMica
-          --wallpaper tests/assets/ci-wallpaper.ppm
-          --smoke-test
+        run: dist/CuteMica.app/Contents/MacOS/CuteMica --smoke-test
       - name: Capture packaged tester preview
         env:
           QT_QPA_PLATFORM: cocoa
         run: >-
           dist/CuteMica.app/Contents/MacOS/CuteMica
-          --wallpaper tests/assets/ci-wallpaper.ppm
           --theme dark
           --width 1040 --height 760 --x 120 --y 90
           --screenshot dist/CuteMica-tester-preview.png

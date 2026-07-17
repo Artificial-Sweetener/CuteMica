@@ -64,6 +64,49 @@ def test_appkit_wallpaper_change_reaches_monitor(
         _restore_desktops(workspace, original)
 
 
+def test_native_heic_wallpaper_change_reaches_shared_renderer(
+    qapp: QApplication,
+) -> None:
+    desktop_pictures = Path("/System/Library/Desktop Pictures/.wallpapers")
+    first = desktop_pictures / "Sequoia Sunrise" / "Sequoia Sunrise.heic"
+    second = desktop_pictures / "Sonoma Horizon" / "Sonoma Horizon.heic"
+    if not first.is_file() or not second.is_file():
+        pytest.skip("host does not contain both native animated wallpaper stills")
+    appkit: Any = import_module("AppKit")
+    workspace: Any = appkit.NSWorkspace.sharedWorkspace()
+    original = _desktop_state(appkit, workspace)
+    bindings = infer_qt_screen_bindings(qapp.screens())
+
+    try:
+        _set_every_desktop(appkit, workspace, original, first)
+        provider = MacOSWallpaperProvider()
+        initial = _wait_for_native_snapshot(qapp, provider, bindings, None)
+        monitor = WallpaperMonitor(provider, bindings, initial)
+        observed: list[WallpaperSnapshot] = []
+        monitor.snapshot_changed.connect(
+            lambda value: _record_snapshot(value, observed)
+        )
+
+        _set_every_desktop(appkit, workspace, original, second)
+        changed = _wait_for_native_snapshot(
+            qapp,
+            provider,
+            bindings,
+            initial.default_source.path,
+        )
+        monitor.poll()
+        qapp.processEvents()
+
+        assert changed.default_source.source_kind == "macos-native-still"
+        with Image.open(changed.default_source.path) as image:
+            image.load()
+            assert image.width > 0
+        assert observed
+        assert observed[-1].default_source.path == changed.default_source.path
+    finally:
+        _restore_desktops(workspace, original)
+
+
 def _wallpaper(path: Path, color: tuple[int, int, int]) -> Path:
     Image.new("RGB", (64, 36), color).save(path)
     return path
@@ -146,6 +189,23 @@ def _wait_for_monitor(
             return
         time.sleep(0.1)
     raise RuntimeError(f"CuteMica did not publish {expected.name}")
+
+
+def _wait_for_native_snapshot(
+    qapp: QApplication,
+    provider: MacOSWallpaperProvider,
+    bindings: tuple[ScreenBinding, ...],
+    previous: Path | None,
+) -> WallpaperSnapshot:
+    deadline = time.monotonic() + 15
+    while time.monotonic() < deadline:
+        qapp.processEvents()
+        snapshot = provider.discover(bindings)
+        source = snapshot.default_source
+        if source.source_kind == "macos-native-still" and source.path != previous:
+            return snapshot
+        time.sleep(0.1)
+    raise RuntimeError("AppKit did not publish the changed native HEIC wallpaper")
 
 
 def _uses_path(

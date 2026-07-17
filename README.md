@@ -15,7 +15,7 @@ fully opaque per-screen `QPixmap` during window movement.
 - PySide6 Essentials for application, theme, display, image, and widget integration.
 - Pillow for wallpaper decoding, placement reconstruction, and resizing.
 - NumPy for the material blur and color pipeline.
-- PyObjC Cocoa bindings on macOS for per-display wallpaper metadata.
+- PyObjC Cocoa bindings on macOS for per-display metadata and native still decoding.
 
 No window-decoration, themed-widget, native-graphics, or system-backdrop
 framework is a CuteMica runtime dependency.
@@ -38,7 +38,7 @@ python -m pip install -e ".[dev]"
 ## Launch the demo
 
 Windows, macOS, GNOME-family desktops, KDE Plasma, MATE, XFCE, and LXQt can
-discover supported image wallpapers:
+discover their current wallpapers:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\run_demo.ps1
@@ -97,9 +97,11 @@ current per-monitor image through `IDesktopWallpaper`, including the current
 image selected by a Windows slideshow. GNOME selects its light- or dark-specific
 URI, KDE Plasma publishes one source per screen and exposes the current image
 saved by its slideshow backend, and macOS reads source, scaling, clipping, and
-fill-color metadata for each AppKit screen. Live/video wallpapers and
-time-selected frames within dynamic image formats are outside the current
-provider contract.
+fill-color metadata for each AppKit screen. For Apple animated and dynamic
+wallpapers, the macOS provider resolves the system-selected HEIC still or Apple
+asset preview and converts it once through AppKit to a private cached PNG.
+CuteMica follows wallpaper selection changes; the material itself remains a
+stable still rather than animating every video frame.
 
 X11, Windows, and macOS expose global window geometry and provide
 desktop-registered material. Standard Wayland clients do not receive their
@@ -204,8 +206,10 @@ GitHub Actions repeats the deterministic renderer and Qt tests on Windows,
 Ubuntu, Apple Silicon macOS, and Intel macOS. Native drag probes exercise the
 Windows, X11, and Cocoa platform plugins plus isolated GNOME, Plasma, and
 Cinnamon Wayland compositors. Separate jobs exercise real
-GNOME/Cinnamon/MATE/XFCE/LXQt settings implementations. Each native macOS job changes
-the hosted runner's AppKit wallpaper twice, verifies that the real CuteMica
+GNOME/Cinnamon/MATE/XFCE/LXQt settings implementations. Each native macOS job
+activates the hosted runner's installed Apple animated wallpaper subsystem,
+decodes its HEIC still through AppKit, generates material through the shared
+renderer, changes between two native Apple HEIC wallpapers, verifies that the
 provider and monitor publish the transition, and restores the original desktop
 state. CI also builds and installs distribution artifacts and runs the real
 CuteMica launch path inside isolated GNOME, Cinnamon, Plasma, MATE, XFCE, and

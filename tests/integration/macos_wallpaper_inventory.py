@@ -5,11 +5,15 @@ from __future__ import annotations
 import argparse
 import plistlib
 import subprocess
-import time
 from importlib import import_module
 from pathlib import Path
 from pprint import pformat
 from typing import Any, cast
+
+from tests.integration.macos_native_mode import (
+    activate_system_default,
+    wallpaper_store_path,
+)
 
 
 def main() -> None:
@@ -17,7 +21,7 @@ def main() -> None:
 
     arguments = _parse_arguments()
     if arguments.activate_system_default:
-        _activate_system_default()
+        activate_system_default()
     print(_command("sw_vers"))
     _print_appkit_records()
     _print_wallpaper_processes()
@@ -86,45 +90,8 @@ def _print_store() -> None:
         print(pformat(plistlib.loads(store.read_bytes())))
 
 
-def _activate_system_default() -> None:
-    store = _store_path()
-    state = plistlib.loads(store.read_bytes())
-    replacements = _replace_desktop_choices(state)
-    if not replacements:
-        raise RuntimeError("Native wallpaper store had no desktop choices")
-    store.write_bytes(plistlib.dumps(state, fmt=plistlib.FMT_BINARY))
-    print(f"REPLACED DESKTOP CHOICES count={replacements}")
-    subprocess.run(["killall", "WallpaperAgent"], check=False)
-    time.sleep(12)
-
-
-def _replace_desktop_choices(value: object) -> int:
-    replacements = 0
-    if isinstance(value, dict):
-        for key, child in value.items():
-            if key == "Desktop" and isinstance(child, dict):
-                content = child.get("Content")
-                if isinstance(content, dict):
-                    content["Choices"] = [
-                        {"Configuration": b"", "Files": [], "Provider": "default"}
-                    ]
-                    content["Shuffle"] = "$null"
-                    replacements += 1
-            replacements += _replace_desktop_choices(child)
-    elif isinstance(value, list):
-        replacements += sum(_replace_desktop_choices(child) for child in value)
-    return replacements
-
-
 def _store_path() -> Path:
-    return (
-        Path.home()
-        / "Library"
-        / "Application Support"
-        / "com.apple.wallpaper"
-        / "Store"
-        / "Index.plist"
-    )
+    return wallpaper_store_path()
 
 
 def _asset_roots() -> tuple[Path, ...]:

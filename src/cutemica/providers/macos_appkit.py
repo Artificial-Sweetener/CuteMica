@@ -18,6 +18,7 @@ class MacDesktopRecord:
     frame_points: tuple[float, float, float, float]
     placement: WallpaperPlacement
     background_color: tuple[int, int, int]
+    source_url: str | None = None
 
 
 def read_macos_desktops() -> tuple[MacDesktopRecord, ...]:
@@ -53,6 +54,7 @@ def _read_screen(appkit: Any, workspace: Any, screen: Any) -> MacDesktopRecord:
         ),
         placement=_placement(appkit, scaling, clipping),
         background_color=_background_color(appkit, options),
+        source_url=cast(str, url.absoluteString()),
     )
 
 

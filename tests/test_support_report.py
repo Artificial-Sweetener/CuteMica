@@ -35,7 +35,7 @@ def test_report_describes_multiple_wallpapers_without_identifying_them(
         "provider": "macos-appkit",
         "per_screen_assignments": 2,
         "source_count": 2,
-        "sources": [{"file_type": ".jpg", "placement": "fill"}],
+        "sources": [{"file_type": ".jpg", "placement": "fill", "source_kind": "file"}],
         "privacy": "Wallpaper pixels, filenames, and paths are not collected.",
     }
     assert "private-left-name" not in serialized

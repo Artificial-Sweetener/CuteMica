@@ -34,14 +34,16 @@ class DemoSmokeSequence(QObject):
         self._exercise_theme_change = exercise_theme_change
         self._generation_count = 0
         self._armed = False
+        self._failed = False
         self.error: str | None = None
         controller.generation_finished.connect(self._on_generation_finished)
+        controller.error.connect(self._on_controller_error)
 
     def start(self) -> None:
         self._armed = True
 
     def _on_generation_finished(self, _generation: int) -> None:
-        if not self._armed:
+        if not self._armed or self._failed:
             return
         self._generation_count += 1
         if self._exercise_theme_change and self._generation_count == 1:
@@ -53,6 +55,13 @@ class DemoSmokeSequence(QObject):
             self._theme.set_mode(opposite)
             return
         QTimer.singleShot(100, self._finish)
+
+    def _on_controller_error(self, message: str) -> None:
+        if not self._armed or self._failed:
+            return
+        self._failed = True
+        self.error = message
+        self._application.exit(1)
 
     def _finish(self) -> None:
         try:

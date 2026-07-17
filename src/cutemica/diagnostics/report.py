@@ -59,7 +59,8 @@ def _wallpaper_payload(wallpaper: WallpaperSnapshot) -> dict[str, object]:
     sources = [wallpaper.default_source]
     sources.extend(item.source for item in wallpaper.per_screen)
     unique_sources = {
-        (source.path.suffix.casefold(), source.placement.value) for source in sources
+        (source.path.suffix.casefold(), source.placement.value, source.source_kind)
+        for source in sources
     }
     source_paths = {source.path.resolve() for source in sources}
     return {
@@ -67,8 +68,12 @@ def _wallpaper_payload(wallpaper: WallpaperSnapshot) -> dict[str, object]:
         "per_screen_assignments": len(wallpaper.per_screen),
         "source_count": len(source_paths),
         "sources": [
-            {"file_type": suffix or "unknown", "placement": placement}
-            for suffix, placement in sorted(unique_sources)
+            {
+                "file_type": suffix or "unknown",
+                "placement": placement,
+                "source_kind": source_kind,
+            }
+            for suffix, placement, source_kind in sorted(unique_sources)
         ],
         "privacy": "Wallpaper pixels, filenames, and paths are not collected.",
     }

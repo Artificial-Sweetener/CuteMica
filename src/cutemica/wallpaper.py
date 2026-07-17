@@ -12,6 +12,7 @@ SourceStateSignature = tuple[
     int,
     WallpaperPlacement,
     tuple[int, int, int],
+    str,
 ]
 SnapshotStateSignature = tuple[
     str,
@@ -25,6 +26,7 @@ class WallpaperSource:
     path: Path
     placement: WallpaperPlacement
     background_color: tuple[int, int, int] = (0, 0, 0)
+    source_kind: str = "file"
 
     def validate(self) -> None:
         if not self.path.is_file():
@@ -58,6 +60,7 @@ class WallpaperSource:
             stat.st_ino,
             self.placement,
             self.background_color,
+            self.source_kind,
         )
 
 

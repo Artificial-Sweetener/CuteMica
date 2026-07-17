@@ -8,6 +8,7 @@ from cutemica.providers.capabilities import (
     WindowRegistration,
 )
 from cutemica.providers.macos_appkit import MacDesktopRecord, read_macos_desktops
+from cutemica.providers.macos_wallpaper_source import MacOSWallpaperSourceResolver
 from cutemica.wallpaper import ScreenWallpaper, WallpaperSnapshot, WallpaperSource
 
 DesktopReader = Callable[[], tuple[MacDesktopRecord, ...]]
@@ -16,8 +17,13 @@ DesktopReader = Callable[[], tuple[MacDesktopRecord, ...]]
 class MacOSWallpaperProvider:
     """Read AppKit wallpaper source and placement for every Qt display."""
 
-    def __init__(self, reader: DesktopReader | None = None) -> None:
+    def __init__(
+        self,
+        reader: DesktopReader | None = None,
+        source_resolver: MacOSWallpaperSourceResolver | None = None,
+    ) -> None:
         self._read = reader or read_macos_desktops
+        self._source_resolver = source_resolver or MacOSWallpaperSourceResolver()
 
     @property
     def name(self) -> str:
@@ -37,19 +43,27 @@ class MacOSWallpaperProvider:
             raise RuntimeError("AppKit did not report any desktop images")
         matches = _match_records(records, bindings)
         sources = tuple(
-            ScreenWallpaper(
-                binding.provider_screen_id,
-                WallpaperSource(
-                    record.path,
-                    record.placement,
-                    record.background_color,
-                ),
-            )
-            for binding, record in matches
+            self._screen_wallpaper(binding, record) for binding, record in matches
         )
         snapshot = WallpaperSnapshot(self.name, sources[0].source, sources)
         snapshot.validate()
         return snapshot
+
+    def _screen_wallpaper(
+        self,
+        binding: ScreenBinding,
+        record: MacDesktopRecord,
+    ) -> ScreenWallpaper:
+        resolved = self._source_resolver.resolve(record)
+        return ScreenWallpaper(
+            binding.provider_screen_id,
+            WallpaperSource(
+                resolved.path,
+                record.placement,
+                record.background_color,
+                resolved.source_kind,
+            ),
+        )
 
 
 def _match_records(
