@@ -88,21 +88,17 @@ def test_native_heic_wallpaper_change_reaches_shared_renderer(
         )
 
         _set_every_desktop(appkit, workspace, original, second)
-        changed = _wait_for_native_snapshot(
+        changed = _wait_for_native_monitor(
             qapp,
-            provider,
-            bindings,
+            monitor,
+            observed,
             initial.default_source.path,
         )
-        monitor.poll()
-        qapp.processEvents()
 
         assert changed.default_source.source_kind == "macos-native-still"
         with Image.open(changed.default_source.path) as image:
             image.load()
             assert image.width > 0
-        assert observed
-        assert observed[-1].default_source.path == changed.default_source.path
     finally:
         _restore_desktops(workspace, original)
 
@@ -206,6 +202,25 @@ def _wait_for_native_snapshot(
             return snapshot
         time.sleep(0.1)
     raise RuntimeError("AppKit did not publish the changed native HEIC wallpaper")
+
+
+def _wait_for_native_monitor(
+    qapp: QApplication,
+    monitor: WallpaperMonitor,
+    observed: list[WallpaperSnapshot],
+    previous: Path,
+) -> WallpaperSnapshot:
+    deadline = time.monotonic() + 15
+    while time.monotonic() < deadline:
+        monitor.poll()
+        qapp.processEvents()
+        if observed:
+            snapshot = observed[-1]
+            source = snapshot.default_source
+            if source.source_kind == "macos-native-still" and source.path != previous:
+                return snapshot
+        time.sleep(0.1)
+    raise RuntimeError("CuteMica did not publish the changed native HEIC wallpaper")
 
 
 def _uses_path(
