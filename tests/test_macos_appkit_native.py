@@ -1,5 +1,7 @@
 import os
 import sys
+from dataclasses import replace
+from pathlib import Path
 
 import pytest
 from PIL import Image
@@ -58,3 +60,30 @@ def test_native_default_generates_material_through_shared_renderer(
         controller.refresh()
 
     assert not errors
+
+
+def test_missing_logical_url_uses_wallpaper_agent_native_still(
+    qapp: QApplication,
+) -> None:
+    if os.environ.get("CUTEMICA_MACOS_NATIVE_DEFAULT") != "1":
+        pytest.skip("requires activated native macOS wallpaper mode")
+    records = read_macos_desktops()
+    missing_records = tuple(
+        replace(
+            record,
+            path=Path(f"/private/cutemica-missing-{index}.mov"),
+            source_url=f"file:///private/cutemica-missing-{index}.mov",
+        )
+        for index, record in enumerate(records)
+    )
+    bindings = infer_qt_screen_bindings(qapp.screens())
+
+    snapshot = MacOSWallpaperProvider(lambda: missing_records).discover(bindings)
+
+    assert snapshot.per_screen
+    for item in snapshot.per_screen:
+        assert item.source.source_kind == "macos-native-still"
+        with Image.open(item.source.path) as image:
+            image.load()
+            assert image.width > 0
+            assert image.height > 0
