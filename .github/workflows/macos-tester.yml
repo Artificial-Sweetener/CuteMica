@@ -36,18 +36,28 @@ jobs:
           codesign --verify --deep --strict --verbose=2 dist/CuteMica.app
       - name: Activate installed Apple native wallpaper
         run: python -m tests.integration.macos_native_mode
+      - name: Export exact native wallpaper still
+        env:
+          QT_QPA_PLATFORM: cocoa
+        run: >-
+          python -m tests.integration.macos_native_source_export
+          dist/CuteMica-native-wallpaper-source.png
       - name: Exercise packaged app
         env:
           QT_QPA_PLATFORM: cocoa
         run: dist/CuteMica.app/Contents/MacOS/CuteMica --smoke-test
-      - name: Capture packaged tester preview
+      - name: Capture packaged tester previews
         env:
           QT_QPA_PLATFORM: cocoa
-        run: >-
-          dist/CuteMica.app/Contents/MacOS/CuteMica
-          --theme dark
-          --width 1040 --height 760 --x 120 --y 90
-          --screenshot dist/CuteMica-tester-preview.png
+        run: |
+          dist/CuteMica.app/Contents/MacOS/CuteMica \
+            --theme light \
+            --width 1040 --height 760 --x 120 --y 90 \
+            --screenshot dist/CuteMica-tester-light.png
+          dist/CuteMica.app/Contents/MacOS/CuteMica \
+            --theme dark \
+            --width 1040 --height 760 --x 120 --y 90 \
+            --screenshot dist/CuteMica-tester-dark.png
       - name: Create disk image
         run: |
           mkdir -p dmg-root
@@ -63,6 +73,8 @@ jobs:
           path: |
             dist/CuteMica-Apple-Silicon.dmg
             dist/CuteMica-Apple-Silicon.dmg.sha256
-            dist/CuteMica-tester-preview.png
+            dist/CuteMica-native-wallpaper-source.png
+            dist/CuteMica-tester-light.png
+            dist/CuteMica-tester-dark.png
             dist/Read-me-first.txt
           if-no-files-found: error
