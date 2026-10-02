@@ -13,6 +13,7 @@ from pytestqt.qtbot import QtBot
 
 from cutemica.enums import ResolvedTheme, WallpaperPlacement
 from cutemica.geometry import Rect, ScreenBinding
+from cutemica.providers import orbit_session
 from cutemica.providers.system_theme import create_system_theme_provider
 from cutemica.providers.system_wallpaper import create_system_wallpaper_provider
 from cutemica.providers.wallpaper_monitor import WallpaperMonitor
@@ -153,6 +154,7 @@ def _wallpaper(path: Path) -> Path:
 
 
 def _set_desktop(monkeypatch: pytest.MonkeyPatch, desktop: str) -> None:
+    monkeypatch.setattr(orbit_session, "orbit_appearance_command", lambda: None)
     monkeypatch.setenv("XDG_CURRENT_DESKTOP", desktop)
 
 

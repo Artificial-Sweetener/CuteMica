@@ -1,7 +1,7 @@
 """Conversions shared by Linux desktop wallpaper providers."""
 
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import urlparse
 from urllib.request import url2pathname
 
 from cutemica.enums import WallpaperPlacement
@@ -9,16 +9,20 @@ from cutemica.providers.gsettings_client import decode_string
 
 
 def path_from_uri(value: str, desktop: str) -> Path:
-    """Convert a GSettings file URI into a validated path value."""
+    """Preserve a literal filename or decode a local file URI exactly once."""
 
-    decoded = decode_string(value)
-    if not decoded:
+    if not value:
         raise RuntimeError(f"{desktop} has no wallpaper image configured")
-    parsed = urlparse(decoded)
+    if Path(value).is_absolute():
+        return Path(value)
+    parsed = urlparse(value)
     if parsed.scheme not in {"", "file"}:
         raise RuntimeError(f"Unsupported {desktop} wallpaper URI: {parsed.scheme}")
-    path = parsed.path if parsed.scheme else decoded
-    return Path(url2pathname(unquote(path)))
+    if parsed.scheme == "file":
+        if parsed.netloc.casefold() not in {"", "localhost"}:
+            raise RuntimeError(f"{desktop} wallpaper URI refers to a remote host")
+        return Path(url2pathname(parsed.path))
+    return Path(value)
 
 
 def path_from_filename(value: str, desktop: str) -> Path:
@@ -33,6 +37,9 @@ def path_from_filename(value: str, desktop: str) -> Path:
 def wallpaper_placement(value: str) -> WallpaperPlacement:
     """Translate common freedesktop wallpaper placement names."""
 
+    placement = decode_string(value).casefold()
+    if placement == "none":
+        raise RuntimeError("Desktop is configured to display a color without an image")
     return {
         "wallpaper": WallpaperPlacement.TILE,
         "centered": WallpaperPlacement.CENTER,
@@ -40,7 +47,7 @@ def wallpaper_placement(value: str) -> WallpaperPlacement:
         "stretched": WallpaperPlacement.STRETCH,
         "zoom": WallpaperPlacement.FILL,
         "spanned": WallpaperPlacement.SPAN,
-    }.get(decode_string(value).casefold(), WallpaperPlacement.FILL)
+    }.get(placement, WallpaperPlacement.FILL)
 
 
 def rgb_color(value: str) -> tuple[int, int, int]:

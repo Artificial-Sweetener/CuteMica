@@ -37,12 +37,23 @@ python -m pip install -e ".[dev]"
 
 ## Launch the demo
 
-Windows, macOS, GNOME-family desktops, KDE Plasma, MATE, XFCE, and LXQt can
+Windows, macOS, GNOME-family desktops, KDE Plasma, MATE, XFCE, LXQt, and Orbit can
 discover their current wallpapers:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\run_demo.ps1
 ```
+
+On Linux, Orbit is detected from an explicit Orbit session or an `orbit-desktop`
+process owned by the current user on the same display. Its provider reads the
+current image through `o-computer-appearance read`, including live wallpaper
+changes. An installed reader alone does not replace another desktop's provider.
+The adapter uses one centered, cover-scaled image for all displays; Orbit's reader
+does not currently expose per-display placement metadata. Multi-display placement
+has not been qualified. Exact crop registration against Orbit's desktop compositor
+has not yet been verified, including on a single display. Restricted sessions that
+hide the desktop process need the explicit Orbit session identifier or an explicit
+wallpaper.
 
 Every platform can launch with an explicit wallpaper, including Wayland and
 desktop environments without an automatic provider:
