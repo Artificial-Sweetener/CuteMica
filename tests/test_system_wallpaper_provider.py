@@ -2,9 +2,14 @@ import sys
 
 import pytest
 
-from cutemica.providers import system_wallpaper
+from cutemica.providers import orbit_session, system_wallpaper
 from cutemica.providers.gnome_wallpaper import GnomeWallpaperProvider
 from cutemica.providers.plasma_wallpaper import PlasmaWallpaperProvider
+
+
+@pytest.fixture(autouse=True)
+def no_orbit_owner(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(orbit_session, "orbit_appearance_command", lambda: None)
 
 
 def test_linux_selects_gnome_provider(monkeypatch: pytest.MonkeyPatch) -> None:

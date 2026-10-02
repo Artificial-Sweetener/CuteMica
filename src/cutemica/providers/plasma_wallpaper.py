@@ -6,15 +6,13 @@ import json
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
-from urllib.parse import unquote, urlparse
-from urllib.request import url2pathname
 
 from cutemica.enums import WallpaperPlacement
 from cutemica.geometry import ScreenBinding
 from cutemica.providers.capabilities import ProviderCapabilities
 from cutemica.providers.linux_session import linux_window_registration
 from cutemica.providers.qt_dbus import qt_dbus_executable
+from cutemica.providers.wallpaper_values import path_from_uri
 from cutemica.wallpaper import ScreenWallpaper, WallpaperSnapshot, WallpaperSource
 
 CommandRunner = Callable[[tuple[str, ...]], str]
@@ -78,7 +76,7 @@ class PlasmaWallpaperProvider:
             if desktop.screen < 0 or desktop.screen >= len(bindings):
                 continue
             source = WallpaperSource(
-                path=_path_from_uri(desktop.image),
+                path=path_from_uri(desktop.image, "Plasma"),
                 placement=_placement(desktop.fill_mode),
                 background_color=_parse_color(desktop.color),
             )
@@ -135,12 +133,6 @@ def _desktop_from_record(record: object) -> PlasmaDesktop:
         )
     except (KeyError, TypeError, ValueError) as error:
         raise RuntimeError("Plasma returned an invalid desktop record") from error
-
-
-def _path_from_uri(value: str) -> Path:
-    parsed = urlparse(value)
-    path = parsed.path if parsed.scheme == "file" else value
-    return Path(url2pathname(unquote(path)))
 
 
 def _placement(fill_mode: int) -> WallpaperPlacement:

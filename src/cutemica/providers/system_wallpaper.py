@@ -20,6 +20,12 @@ def create_system_wallpaper_provider() -> WallpaperProvider:
 
         return MacOSWallpaperProvider()
     if sys.platform.startswith("linux"):
+        from cutemica.providers.orbit_session import orbit_appearance_command
+
+        if command := orbit_appearance_command():
+            from cutemica.providers.orbit_wallpaper import OrbitWallpaperProvider
+
+            return OrbitWallpaperProvider(command)
         desktop = os.environ.get("XDG_CURRENT_DESKTOP", "").casefold()
         if "gnome" in desktop or "unity" in desktop or "cinnamon" in desktop:
             from cutemica.providers.gnome_wallpaper import GnomeWallpaperProvider

@@ -6,7 +6,11 @@ import os
 
 from cutemica.geometry import ScreenBinding
 from cutemica.providers.capabilities import ProviderCapabilities
-from cutemica.providers.gsettings_client import CommandRunner, GSettingsClient
+from cutemica.providers.gsettings_client import (
+    CommandRunner,
+    GSettingsClient,
+    decode_string,
+)
 from cutemica.providers.linux_session import linux_window_registration
 from cutemica.providers.wallpaper_values import (
     path_from_uri,
@@ -63,7 +67,7 @@ class GnomeWallpaperProvider:
             )
             uri = dark_uri or uri
         source = WallpaperSource(
-            path=path_from_uri(uri, "GNOME-family desktop"),
+            path=path_from_uri(decode_string(uri), "GNOME-family desktop"),
             placement=wallpaper_placement(
                 self._settings.get(self._background_schema, "picture-options")
             ),
